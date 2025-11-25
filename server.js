@@ -76,7 +76,7 @@ async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, dat
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Basic os_v2_app_cmkcd63r4vdcvjlvypzl4npijdtomdkey4geyvfb7nevd5qydgjtv6k3t6o26oird2xh4wvusc7pwoon4m2fd2in6av6kufhb7juroa'
+        'Authorization': process.env.ONESIGNALAUTH
       },
       body: JSON.stringify(payload),
     });
