@@ -53,7 +53,7 @@ admin.initializeApp({
 
 
 async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, data = {tipo: "nueva_cita"}, large_icon="https://siac.empresas.historiaclinica.org/images/splash-icon.png") {
-  // Validación del token/dispositivo
+
   if (!oneSignalUserId || typeof oneSignalUserId !== 'string') {
     console.error('❌ OneSignal userId inválido:', oneSignalUserId);
     return { success: false, error: 'OneSignal userId inválido' };
