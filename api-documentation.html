@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentación de API - SIAC</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f9f9f9; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h1 { text-align: center; }
+        .endpoint { border: 1px solid #ddd; border-radius: 5px; margin-bottom: 20px; padding: 15px; background-color: #fafafa; }
+        .endpoint-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .method { font-weight: bold; padding: 6px 12px; border-radius: 4px; color: #fff; text-transform: uppercase; font-size: 0.9em; }
+        .method-get { background-color: #27ae60; }
+        .method-post { background-color: #2980b9; }
+        .method-put { background-color: #f39c12; }
+        .method-patch { background-color: #8e44ad; }
+        .method-delete { background-color: #c0392b; }
+        .path { font-family: "Courier New", Courier, monospace; font-weight: bold; color: #34495e; font-size: 1.1em; }
+        .auth { font-weight: bold; font-size: 0.9em; }
+        .auth-required { color: #c0392b; }
+        .auth-none { color: #27ae60; }
+        .details-section { margin-top: 10px; }
+        .details-section h4 { color: #3498db; margin-top: 0; }
+        code { background-color: #ecf0f1; padding: 3px 6px; border-radius: 3px; font-family: "Courier New", Courier, monospace; }
+        pre { background-color: #ecf0f1; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 5px; }
+        details { border-left: 3px solid #3498db; padding-left: 10px; margin-bottom: 8px; }
+        summary { cursor: pointer; font-weight: bold; color: #2c3e50; }
+        summary:hover { color: #3498db; }
+        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 1.2em; color: #34495e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Documentación de API - SIAC</h1>
+
+        <!-- ==================== server.js ==================== -->
+        <h2>Endpoints Principales (server.js)</h2>
+        
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/crear-paciente</span></div>
+            <p>Crea un nuevo paciente en el sistema.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{
+    "tipo_cedula": "V", "cedula": "12345678", "apellidos": "PEREZ", "nombres": "JUAN", 
+    "telef1": "0412-1234567", "sexo": "M", "correo": "juan.perez@example.com", 
+    "fecha_nacimiento": "1990-01-15", "direccion": "Av. Principal"
+}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/crear-cita</span></div>
+            <p>Registra una nueva cita en la agenda. Tiene un límite de 10 solicitudes por IP cada 10 minutos.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{
+    "id_cli": "NOMBRE_CLINICA", "title": "Consulta General", "nota": "Paciente refiere dolor de cabeza.",
+    "id_paciente": 123, "id_med": 45, "fecha_inicio": "2025-10-03 10:00:00", "fecha_fin": "2025-10-03 10:30:00"
+}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/actualizar-paciente</span></div>
+            <p>Actualiza un campo específico de un paciente (correo o telef1).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_paciente</code> (Requerido): ID del paciente.</li><li><code>campo</code> (Requerido): Campo a actualizar ('correo' o 'telef1').</li><li><code>correo</code> / <code>telef1</code> (Requerido): El nuevo valor para el campo especificado.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/doctors</span></div>
+            <p>Obtiene la lista de médicos de una clínica, incluyendo sus especialidades y horarios.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>clinic_id</code> (Requerido): ID numérico o nombre en mayúsculas de la clínica.</li><li><code>medic_id</code> (Opcional): ID del médico para obtener detalles específicos.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/doctors/citas</span></div>
+            <p>Obtiene las citas ocupadas de un médico en una fecha específica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>clinic_id</code> (Requerido): ID numérico o nombre de la clínica.</li><li><code>medic_id</code> (Requerido): ID del médico.</li><li><code>fecha</code> (Requerido): Fecha en formato YYYY-MM-DD.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/localidades</span></div>
+            <p>Obtiene una lista de estados, municipios, parroquias o zonas.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>tipo</code> (Opcional): 'mun' (municipios), 'par' (parroquias), 'zon' (zonas). Si se omite, devuelve estados.</li><li><code>tipo_id</code> (Opcional): ID del padre geográfico (e.g., id_estado para municipios).</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/login</span></div>
+            <p>Autentica a un usuario y devuelve un token JWT. Tiene un límite de 10 intentos cada 5 minutos.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{"usuario": "nombredeusuario", "password": "supassword", "ip_internet": "200.1.1.1", "ip_local": "192.168.1.10"}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/validate-token</span></div>
+            <p>Valida un token JWT enviado en el header de autorización.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/pacientes</span></div>
+            <p>Busca un paciente por su ID o por su tipo y número de cédula.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_paciente</code> (Opcional): ID numérico del paciente.</li><li><code>cedula</code> (Opcional): Número de cédula.</li><li><code>tipo_cedula</code> (Opcional): Tipo de cédula (e.g., 'V', 'E').</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/tipo_admision</span></div>
+            <p>Obtiene la lista de entidades para un tipo de admisión (Seguros, Empresas, etc.).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>clinic_id</code> (Requerido): ID o nombre de la clínica.</li><li><code>tipo</code> (Requerido): 'S' (Seguros), 'E' (Empresas), 'I' (Internos), 'sub' (Sub-empresas).</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/crear-admision</span></div>
+            <p>Crea una nueva admisión para un paciente.</p>
+            <span class="auth auth-none">Autenticación: Ninguna (implícitamente requerida por los datos necesarios)</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Un objeto complejo con todos los detalles de la admisión (id_paciente, id_seguro, id_usuario, etc.).</p></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/crear-admision-detalle</span></div>
+            <p>Añade un detalle (estudio/procedimiento) a una admisión existente.</p>
+            <span class="auth auth-none">Autenticación: Ninguna (implícitamente requerida)</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Un objeto con los detalles del estudio (id_admision, id_estudio, id_medico, precio, etc.).</p></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/validar-cita</span></div>
+            <p>Valida una cita pendiente, cambiando su estado a 'Esperando'.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id</code> (Requerido): ID del calendario (cita).</li><li><code>id2</code> (Requerido): ID del paciente.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/config-honorarios</span></div>
+            <p>Crea una nueva configuración de grupo de honorarios.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Objeto con los detalles de la configuración (descripcion, porcentaje_med, monto_fijo, id_cli, etc.).</p></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/config-honorarios</span></div>
+            <p>Actualiza una configuración de grupo de honorarios existente.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Objeto con los campos a actualizar y el <code>id_honorario</code>.</p></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/bcv</span></div>
+            <p>Obtiene las tasas de cambio actuales desde la página del Banco Central de Venezuela (BCV).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/admisiones_admidet</span></div>
+            <p>Obtiene una lista detallada de admisiones y sus estudios, con filtros y paginación.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{
+    "id_cli": 1, "fecha_inicio": "2025-01-01", "fecha_fin": "2025-10-03",
+    "tipos_consulta": ["P", "S"], "status_cierre": "abierto", "activos": [1],
+    "page": 1, "perPage": 50, "agrupado": "n"
+}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/cerrar_admision</span></div>
+            <p>Realiza el cierre manual de una admisión.</p>
+            <span class="auth auth-none">Autenticación: Ninguna (implícita por body)</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{"id_admision": 1, "motivo": 2, "id_usuario": 1, "nota": "Cerrada por...", "factura": "F001"}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/cmic/recibo_honorarios</span></div>
+            <p>Obtiene los detalles de un recibo de honorarios específico (contexto CMIC).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>recibo</code> (Requerido): Número del recibo.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/listado_entrega</span></div>
+            <p>Genera un listado para entrega (posiblemente de resultados o muestras) basado en múltiples filtros.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{
+    "id_cli": 1, "fecha_inicio": "2025-09-01", "fecha_fin": "2025-10-01",
+    "tipos_admision": ["P"], "grupos": [1, 2], "tipos": [3, 4]
+}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/actualizar-admision</span></div>
+            <p>Actualiza el campo de diagnóstico de una admisión.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_admision</code> (Requerido): ID de la admisión.</li><li><code>campo</code> (Requerido): Debe ser 'diagnostico'.</li><li><code>diagnostico</code> (Requerido): El nuevo texto del diagnóstico.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/estudios-muestras</span></div>
+            <p>Asocia o actualiza la muestra de un estudio.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_estudio</code> (Requerido): ID del estudio.</li><li><code>id_muestra</code> (Requerido): ID de la muestra.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/tasas-admision</span></div>
+            <p>Actualiza masivamente la tasa de cambio para un conjunto de admisiones que no estén cerradas.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{"admisiones": [101, 102, 103], "tasa": 38.5}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/add_zonas</span></div>
+            <p>Añade o actualiza una zona geográfica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Para crear: <code>{id_parroquia, descripcion}</code>. Para actualizar: <code>{id_zona, descripcion, id_parroquia}</code> o <code>{id_zona, activo}</code>.</p></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/movimiento_inventario</span></div>
+            <p>Registra un movimiento de inventario (traslado) entre dos almacenes.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Objeto con detalles del movimiento: <code>almacen_salida, almacen_destino, id_insumo, cantidad, etc.</code></p></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/devol_inventario</span></div>
+            <p>Registra una devolución de un insumo al inventario.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Request Body:</h4><p>Objeto con detalles de la devolución: <code>almacen_salida, id_insumo, cantidad, id_admidet, etc.</code></p></div>
+        </div>
+        
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/promociones_admi</span></div>
+            <p>Obtiene promociones aplicadas a una lista de admisiones.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>admisiones</code> (Requerido): IDs de las admisiones separadas por comas.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/almacenes/listado_med_grupos</span></div>
+            <p>Lista los insumos de un almacén, filtrados por grupo.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>almacen</code> (Requerido): ID del consultorio/almacén.</li><li><code>grupo</code> (Requerido): ID del grupo de estudio/insumo.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/cambio-precios-admision</span></div>
+            <p>Actualiza el precio de un item en una admisión y guarda el precio anterior en el historial.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{"admidet": 1, "tasa": 39.0, "precio": 390, "precio_usd": 10, "id_usuario": 1}</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/historico_precios</span></div>
+            <p>Obtiene el historial de cambios de precio para un item de admisión.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>admidet</code> (Requerido): ID del detalle de la admisión.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/estudios-filtrados</span></div>
+            <p>Obtiene los estudios que un médico realiza en un día específico de la semana.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_cli</code>, <code>id_medico</code>, <code>dia</code> (0=Dom, 1=Lun...).</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/config-filtro-estudios</span></div>
+            <p>Obtiene la configuración de los filtros de estudios por médico.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/config-filtro-estudios</span></div>
+            <p>Elimina una configuración de filtro de estudio por médico.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/config-filtro-estudios</span></div>
+            <p>Añade masivamente filtros de estudios a un médico (por estudio, tipo o grupo).</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/config-filtro-estudios</span></div>
+            <p>Activa o desactiva un filtro de estudio para un día de la semana.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/admisiones_abrir</span></div>
+            <p>Reabre una admisión que ya había sido cerrada.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/admisiones/buscar-admisiones</span></div>
+            <p>Busca admisiones con paginación y múltiples criterios de filtro.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/verificar-stock-medicamento</span></div>
+            <p>Verifica el stock de un medicamento y devuelve su precio según la tarifa.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-put">PUT</span><span class="path">/api/mobile/cambiar-foto-perfil</span></div>
+            <p>Sube y actualiza la foto de perfil de un usuario (móvil).</p>
+            <span class="auth auth-none">Autenticación: Ninguna (usa Multer para subida de archivos)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/mobile/citas-medico</span></div>
+            <p>Obtiene las citas de un médico (actuales, próximas, pasadas) para la app móvil.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/mobile/cita</span></div>
+            <p>Cancela una cita desde la app móvil.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/mobile/clinicas_med</span></div>
+            <p>Obtiene las clínicas asociadas a un médico (móvil).</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/estudios-metodo-procesamiento</span></div>
+            <p>Asocia o actualiza el método de procesamiento de un estudio.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/mobile/crear-cita</span></div>
+            <p>Crea una nueva cita desde la app móvil.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/portal-med/notificaciones-med</span></div>
+            <p>Obtiene las notificaciones para el portal médico con paginación.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-put">PUT</span><span class="path">/api/portal-med/mostrar-notificaciones-med</span></div>
+            <p>Actualiza la preferencia de un usuario para mostrar o no las notificaciones.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/portal-med/notificaciones-med</span></div>
+            <p>Elimina una notificación del portal médico.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/portal-med/notificaciones-med</span></div>
+            <p>Crea una nueva notificación para el portal médico.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/agendas/reprogramar</span></div>
+            <p>Reprograma una cita existente.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/agendas/reporte_status</span></div>
+            <p>Genera un reporte de estados de citas (reprogramadas, canceladas, etc.).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/mobile/perfil-medico</span></div>
+            <p>Obtiene el perfil de un médico para la app móvil.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/mobile/perfil-medico</span></div>
+            <p>Actualiza un campo del perfil de un médico (móvil).</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/mobile/pacientes-medico</span></div>
+            <p>Obtiene la lista de pacientes de un médico con paginación y búsqueda (móvil).</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/mobile/pacientes-peso-talla</span></div>
+            <p>Obtiene el historial de peso y talla de un paciente (móvil).</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/mobile/resumen-consultas</span></div>
+            <p>Obtiene un resumen de las consultas de un paciente (móvil).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/mobile/registrar-token-push</span></div>
+            <p>Registra o actualiza un token de notificación push para un médico.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/agenda/manejar-notificacion</span></div>
+            <p>Envía una notificación push sobre una nueva cita.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-put">PUT</span><span class="path">/api/agenda/evento</span></div>
+            <p>Actualiza el estado o el turno de un evento en la agenda.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/agenda/evento</span></div>
+            <p>Elimina un evento de la agenda.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/opciones/main</span></div>
+            <p>Actualiza una opción de configuración principal (USD_EUR).</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/opciones/almacenes</span></div>
+            <p>Obtiene los almacenes principales de una clínica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/crm/promociones_descuentos</span></div>
+            <p>Obtiene las promociones y descuentos activos para una clínica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/configuraciones/medic-push</span></div>
+            <p>Obtiene la lista de médicos afiliados a notificaciones push.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/configuraciones/medic-push</span></div>
+            <p>Afilia a un médico para que reciba notificaciones push.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/configuraciones/medic-push</span></div>
+            <p>Elimina la afiliación de un médico a las notificaciones push.</p>
+            <span class="auth auth-required">Autenticación: Requerida (Bearer Token)</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/portal-med/cargar-plantilla</span></div>
+            <p>Carga el contenido de una plantilla de consulta o informe.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/portal-med/cargar-formatos</span></div>
+            <p>Carga los formatos de consulta disponibles para una clínica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/odonto/opciones-predeterminadas</span></div>
+            <p>Obtiene las opciones predeterminadas para el módulo de odontología (caras, procedimientos, piezas).</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/odonto/procedures</span></div>
+            <p>Registra un nuevo procedimiento odontológico para un paciente.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-put">PUT</span><span class="path">/api/odonto/procedures</span></div>
+            <p>Actualiza un procedimiento odontológico existente.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/odonto/procedures-estado</span></div>
+            <p>Cambia el estado de un procedimiento odontológico, creando un nuevo registro.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/odonto/procedures</span></div>
+            <p>Obtiene los procedimientos odontológicos de un paciente asociados a una admisión.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/odonto/procedures</span></div>
+            <p>Elimina un procedimiento odontológico.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/odonto/especialistas</span></div>
+            <p>Obtiene la lista de especialistas en odontología de una clínica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/caja/estado</span></div>
+            <p>Obtiene el estado (Abierto/Cerrado) de la caja para una fecha específica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/caja/apertura</span></div>
+            <p>Registra la apertura de la caja para el día con los montos iniciales.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/caja/cierre</span></div>
+            <p>Obtiene los datos necesarios para realizar el cierre de caja.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/caja/cierre</span></div>
+            <p>Cierra la caja para una fecha específica.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/pacientes/get_ultima_direccion</span></div>
+            <p>Obtiene la dirección más reciente registrada para un paciente a partir de sus admisiones.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/reportes/comisiones_referido</span></div>
+            <p>Genera un reporte de comisiones para referidos.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/reportes/comisiones_referido-estudios</span></div>
+            <p>Excluye un estudio del reporte de comisiones.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/reportes/comisiones_referido-estudios</span></div>
+            <p>Obtiene la lista de estudios excluidos del reporte de comisiones.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/api/reportes/comisiones_referido-estudios</span></div>
+            <p>Elimina un estudio de la lista de exclusión del reporte de comisiones.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/honorarios/proc_tecnico</span></div>
+            <p>Genera un reporte de honorarios para técnicos, agrupado por estudio, grupo o tipo.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/reportes/record_medico</span></div>
+            <p>Genera un reporte de los procedimientos realizados por cada médico en un período.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+
+        <!-- ==================== /cargar_query ==================== -->
+        <h2>Endpoint Dinámico de Consultas</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/cargar_query</span></div>
+            <p>Este es un endpoint genérico y muy potente que ejecuta consultas SQL predefinidas almacenadas en el archivo <code>queries.js</code>. La consulta se selecciona usando un <code>id_contenedor</code> (que elige un grupo de queries) y un <code>id_query</code> (que elige la consulta dentro de ese grupo).</p>
+            <span class="auth auth-none">Autenticación: Ninguna (pero la lógica interna puede depender de datos de sesión)</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{"id_query": 0, "id_contenedor": 0, "filtros": ["param1", "param2"]}</pre>
+                <h4>Contenedores y Consultas Disponibles:</h4>
+                
+                <h3>Contenedor 0: queries</h3>
+                <details><summary>[0] - Obtener botones del plan</summary><pre>SELECT boton FROM planes_det WHERE id_plan=?</pre></details>
+                <details><summary>[1] - Obtener versiones activas</summary><pre>SELECT * FROM versiones WHERE (activo='1' AND id_cli=?) OR (activo='1' AND id_cli='0') ORDER BY id_version DESC LIMIT ? OFFSET ?</pre></details>
+                <details><summary>[2] - Contar versiones activas</summary><pre>SELECT COUNT(id_version) AS total FROM versiones WHERE (activo='1' AND id_cli=?) OR (activo='1' AND id_cli='0')</pre></details>
+                <details><summary>[3] - Contar admisiones por nro. de control</summary><pre>SELECT COUNT(id_admision) as total FROM admisiones WHERE control =? and id_cli=? and activo=1</pre></details>
+                <details><summary>[4] - Obtener ID de estudio por descripción</summary><pre>SELECT id_estudio FROM estudios WHERE descripcion =? and id_cli=?</pre></details>
+                <details><summary>[5] - Obtener lista de médicos activos</summary><pre>SELECT m.id_medico, CONCAT(m.nombre, ' ', m.apellido) as medico FROM medicos m INNER JOIN medicos_clinicas mc ON m.id_medico=mc.id_med WHERE mc.id_cli=? AND mc.activo=1</pre></details>
+                <details><summary>[6] - Obtener lista de consultorios activos</summary><pre>SELECT id_consultorio, descripcion FROM consultorios WHERE activo=1 and id_cli=?</pre></details>
+                <details><summary>[7] - Obtener citas en espera</summary><pre>SELECT calendarios.title, calendarios.descripcion, calendarios.start, calendarios.fecha_creacion, pacientes.telef1, pacientes.correo, concat(medicos.nombre, ' ', medicos.apellido)as medicos, medicos.id_medico FROM medicos, calendarios, pacientes WHERE calendarios.id_paciente = pacientes.id_paciente AND calendarios.id_medico = medicos.id_medico AND calendarios.status_ag = 'Esperando' AND calendarios.activo = 1 AND calendarios.id_cli =?;</pre></details>
+                <details><summary>[8] - Obtener reportes personalizados</summary><pre>SELECT * FROM reportes_personalizados WHERE id_cli =?;</pre></details>
+                <details><summary>[9] - Obtener empresas activas</summary><pre>SELECT id_empresa,descripcion FROM empresas WHERE id_cli =? and activo=1;</pre></details>
+                <details><summary>[10] - Obtener seguros activos</summary><pre>SELECT id_seguro,descripcion FROM seguros WHERE id_cli =? and activo=1;</pre></details>
+                <details><summary>[11] - Obtener tipos internos activos</summary><pre>SELECT id_tipo_interno,descripcion FROM tipos_interno WHERE id_cli =? and activo=1;</pre></details>
+                <details><summary>[12] - Obtener grupos de estudio activos</summary><pre>SELECT * FROM grupo_estudio WHERE id_cli =? and activo=1;</pre></details>
+                <details><summary>[13] - Obtener tipos de estudio activos</summary><pre>SELECT * FROM tipo_estudio WHERE id_cli =? and activo=1;</pre></details>
+                <details><summary>[14] - Obtener monedas activas</summary><pre>SELECT id_moneda, simbolo, descripcion FROM monedas where id_cli='0' or id_cli =? and activo ='1'</pre></details>
+                <details><summary>[15] - Obtener formas de pago activas</summary><pre>SELECT id_forma_pago, nota, descripcion, credito FROM formas_pago where id_cli in ('0', ?) and activo ='1' and id_moneda IN(0,?)</pre></details>
+                <details><summary>[16] - Obtener estudios (no insumos)</summary><pre>SELECT * FROM estudios WHERE id_cli =? and activo=1 and insumo=0;</pre></details>
+                <details><summary>[17] - Obtener botón del plan de la empresa</summary><pre>SELECT pd.boton FROM perfil_usuario_empresa pue JOIN planes_det pd ON pue.id_plan = pd.id_plan WHERE pue.id_usuario_empresa = ?</pre></details>
+                <details><summary>[18] - Obtener opciones principales</summary><pre>SELECT * FROM opt_main WHERE id_cli=?</pre></details>
+                <details><summary>[19] - Obtener canales de atracción</summary><pre>SELECT * FROM canales_atraccion WHERE id_cli=?</pre></details>
+                <details><summary>[20] - Obtener estudios (insumos)</summary><pre>SELECT * FROM estudios WHERE id_cli =? and activo=1 and insumo=1;</pre></details>
+                <details><summary>[21] - Obtener métodos de pago de gastos</summary><pre>SELECT * FROM gastos_metodo_pago where id_cli IN (0, ?) and activo=1;</pre></details>
+                <details><summary>[22] - Actualizar preferencia de noticias</summary><pre>UPDATE perfil_usuario_basico SET mostrar_news =? WHERE id_usuario = ?;</pre></details>
+                <details><summary>[23] - Obtener cajas y sus controles</summary><pre>SELECT cajas.*, facturas_controles.num_factura, facturas_controles.num_control, facturas_controles.num_recibo, facturas_controles.prefijo_factura, facturas_controles.prefijo_recibo FROM cajas INNER JOIN facturas_controles ON facturas_controles.id_caja=cajas.id where cajas.id_cli IN (0, ?);</pre></details>
+                <details><summary>[24] - Obtener usuarios asignados a una caja</summary><pre>SELECT u.usuario, cu.id FROM caja_usuarios cu INNER JOIN usuarios u ON cu.id_usuario = u.id WHERE cu.id_caja=?;</pre></details>
+                <details><summary>[25] - Obtener usuarios activos de una empresa</summary><pre>SELECT u.id, u.usuario FROM usuarios u INNER JOIN perfil_usuario_basico pub ON u.id=pub.id_usuario WHERE pub.id_usuario_empresa=? AND u.activo=1;</pre></details>
+
+                <h3>Contenedor 1: queries_admisiones</h3>
+                <details><summary>[0] - Obtener datos completos de una admisión</summary><pre>SELECT admisiones.*, admisiones.monto_apro as nota_seguro, ... FROM admisiones INNER JOIN pacientes ON ... WHERE admisiones.id_admision = ?;</pre></details>
+                <details><summary>[1] - Obtener los detalles (estudios) de una admisión</summary><pre>SELECT admisiones_det.precio, ... FROM admisiones_det INNER JOIN estudios ON ... WHERE admisiones_det.id_admision = ?</pre></details>
+                <details><summary>[2] - Generar reporte de relación de admisiones</summary><pre>SELECT admisiones_det.precio, ... FROM admisiones INNER JOIN pacientes ON ... WHERE admisiones.fecha_admision BETWEEN ? AND ...</pre></details>
+                <details><summary>[3] - Generar reporte de pacientes atendidos por médico</summary><pre>SELECT admisiones_det.precio, ... FROM admisiones INNER JOIN pacientes ON ... WHERE admisiones_det.activo =1 and admisiones.activo = 1 and admisiones.fecha_admision BETWEEN ? AND ...</pre></details>
+                <details><summary>[4] - Obtener admisiones con detalles (para reportes)</summary><pre>SELECT admisiones.*, ... FROM admisiones INNER JOIN admisiones_det ON ... WHERE admisiones.id_cli = ? AND admisiones.tipo_consulta IN (?) ...</pre></details>
+                <details><summary>[5] - Obtener motivos de cierre de admisión</summary><pre>SELECT id, descripcion from admisiones_cierres_tipo where id_cli IN (?, 0) and activo =1 and id>3</pre></details>
+                <details><summary>[6] - Obtener promociones aplicadas a una admisión</summary><pre>SELECT ad.id_admision_descuento, ... FROM admisiones_descuentos ad INNER JOIN promociones p ON ...</pre></details>
+
+                <h3>Contenedor 2: queries_agenda</h3>
+                <details><summary>[0] - Contar total de citas pendientes</summary><pre>SELECT count(id_calendario)as total from calendarios where calendarios.status_ag = 'Pendiente' AND calendarios.activo = 1 AND calendarios.id_cli =?</pre></details>
+
+                <h3>Contenedor 3: queries_opciones</h3>
+                <details><summary>[0] - Obtener opciones de facturación</summary><pre>SELECT * FROM opt_factura WHERE id_cli=?</pre></details>
+                <details><summary>[1] - Obtener opciones del portal médico</summary><pre>SELECT * FROM opt_med_portal WHERE id_cli=?</pre></details>
+                <details><summary>[2] - Obtener opciones de admisiones</summary><pre>SELECT * FROM opt_admisiones WHERE id_cli=?</pre></details>
+                <details><summary>[3] - Obtener opciones de APS</summary><pre>SELECT * FROM opt_aps WHERE id_cli=?</pre></details>
+                <details><summary>[4] - Obtener opciones de notificaciones</summary><pre>SELECT * FROM opt_notificaciones WHERE id_cli=?</pre></details>
+
+                <h3>Contenedor 4: queries_honorarios</h3>
+                <details><summary>[0] - Calcular honorarios de técnicos para un recibo</summary><pre>SELECT estudios.descripcion, admisiones_det.cantidad, ... FROM admisiones_det, estudios, ... WHERE admisiones_det.id_admidet IN (SELECT hon_med_recibo_det1.id_admidet ...)</pre></details>
+                <details><summary>[1] - Obtener detalles de recibo de honorarios y formas de pago</summary><pre>SELECT h.paciente, h.cant, h.estudio, ... FROM hon_med_recibo_det1 h LEFT JOIN control_pagos cp ON ... WHERE h.id_hon_med_pago = ?</pre></details>
+
+                <h3>Contenedor 5: portal_med</h3>
+                <details><summary>[0] - Obtener historial de paciente para portal médico</summary><pre>SELECT admisiones_det.id_admidet, ... FROM admisiones INNER JOIN pacientes ON ... WHERE admisiones.id_paciente =? AND admisiones.id_cli =? AND (admisiones_det.id_medico =? OR ...)</pre></details>
+                <details><summary>[1] - Limpiar (borrar) campos de una consulta</summary><pre>UPDATE consultas SET consulta=NULL, revision_sistema=NULL, ... WHERE id_admidet = ?</pre></details>
+                <details><summary>[2] - Obtener lista de médicos activos de una clínica</summary><pre>SELECT m.id_medico, CONCAT(m.nombre, ' ', m.apellido) AS medico, ... FROM medicos m LEFT JOIN medicos_clinicas mc ON ... WHERE mc.id_cli=? AND mc.activo=1</pre></details>
+                <details><summary>[3] - Obtener historial de paciente (móvil)</summary><pre>SELECT admisiones_det.id_admidet, ... FROM admisiones INNER JOIN pacientes ON ... WHERE admisiones.id_paciente =? AND (admisiones_det.id_medico =? OR ...)</pre></details>
+                <details><summary>[4] - Obtener especialidades de un médico</summary><pre>SELECT m.id_medico, e.descripcion, ... FROM medicos m INNER JOIN med_esp me ON ... WHERE m.id_medico=?</pre></details>
+                <details><summary>[5] - Obtener último procedimiento odontológico de un paciente</summary><pre>SELECT opp.id, a.id_admision, ad.id_admidet FROM odontol_pieces_procedures opp INNER JOIN admisiones_det ad on ... WHERE opp.id_paciente=? LIMIT 1</pre></details>
+
+                <h3>Contenedor 6: queries_inventarios</h3>
+                <details><summary>[0] - Generar reporte de movimientos de inventario</summary><pre>SELECT almacen_movimientos.id_movimiento_almacen, ... FROM almacen_movimientos, estudios, ... WHERE almacen_movimientos.id_responsable=usuarios.id and ...</pre></details>
+                <details><summary>[1] - Generar reporte de ventas de insumos</summary><pre>SELECT e.id_estudio, e.descripcion AS estudio, ... FROM admisiones_det d INNER JOIN admisiones a ON ... WHERE e.insumo = 1 AND a.id_cli = ? ...</pre></details>
+                <details><summary>[2] - Obtener almacenes de inventario</summary><pre>SELECT consultorios.id_consultorio as ID, consultorios.descripcion as Almacen FROM consultorios WHERE consultorios.descripcion IN ('PRINCIPAL', 'DEVOLUCIONES', 'RESERVA') and consultorios.id_cli= ?</pre></details>
+            </div>
+        </div>
+
+        <!-- ==================== routes.js ==================== -->
+        <h2>Autenticación Externa (/api/auth)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/google</span></div>
+            <p>Inicia el proceso de autenticación con Google.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/google/callback</span></div>
+            <p>Callback de Google tras la autenticación. Genera un token JWT y redirige al frontend.</p>
+        </div>
+
+        <!-- ==================== antecedentes.js ==================== -->
+        <h2>Módulo de Antecedentes (/api/antecedentes)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/consulta/:id_admidet</span></div>
+            <p>Obtiene o crea un ID de consulta y recupera los datos de identificación del paciente.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/paciente/:id_paciente</span></div>
+            <p>Actualiza la información general de un paciente.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/datos_enfermeria/:id_admision</span></div>
+            <p>Crea o actualiza los datos de enfermería para una admisión.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/todos/:id_consulta</span></div>
+            <p>Obtiene todas las secciones de antecedentes para una consulta.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/todos/:id_consulta</span></div>
+            <p>Actualiza de forma masiva múltiples secciones de antecedentes.</p>
+        </div>
+
+        <!-- ==================== caja.js ==================== -->
+        <h2>Módulo de Caja (/api/caja)</h2>
+        <p>Todos los endpoints de este módulo requieren autenticación.</p>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/usuarios/:id_caja</span></div>
+            <p>Elimina la asignación de un usuario a una caja.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/usuarios</span></div>
+            <p>Asigna un usuario a una caja registradora.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-put">PUT</span><span class="path">/caja</span></div>
+            <p>Actualiza la descripción de una caja.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/caja</span></div>
+            <p>Crea una nueva caja registradora.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/facturas_controles</span></div>
+            <p>Actualiza los números de control (factura, control, recibo) para una caja.</p>
+        </div>
+
+        <!-- ==================== control_gastos.js ==================== -->
+        <h2>Módulo de Control de Gastos (/api/control_gastos)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/gastos</span></div>
+            <p>Obtiene una lista de gastos con filtros.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/gastos</span></div>
+            <p>Crea un nuevo gasto. <span class="auth auth-required">Autenticación Requerida.</span></p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/categorias</span></div>
+            <p>Obtiene las categorías de gastos.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/categorias</span></div>
+            <p>Crea una nueva categoría de gasto. <span class="auth auth-required">Autenticación Requerida.</span></p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/proveedores</span></div>
+            <p>Obtiene la lista de proveedores.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/proveedores</span></div>
+            <p>Crea un nuevo proveedor. <span class="auth auth-required">Autenticación Requerida.</span></p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/reportes/gastos-por-categoria</span></div>
+            <p>Genera un reporte de gastos agrupados por categoría.</p>
+        </div>
+
+        <!-- ==================== header.js ==================== -->
+        <h2>Módulo de Header (/api)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/header/:id_cli</span></div>
+            <p>Genera un encabezado HTML y CSS para una clínica específica, usado en reportes.</p>
+        </div>
+
+        <!-- ==================== honorarios.js ==================== -->
+        <h2>Módulo de Honorarios (/api/honorarios)</h2>
+        <p>Todos los endpoints de este módulo requieren autenticación.</p>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/copiar-recibo</span></div>
+            <p>Copia un recibo de honorarios a partir de uno previo.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/pagosRealizados</span></div>
+            <p>Genera un reporte detallado de honorarios calculados.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-put">PUT</span><span class="path">/cerrar-recibo/:num_recibo</span></div>
+            <p>Cierra o reabre un recibo de honorarios.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/pagos-honorarios/:num_recibo</span></div>
+            <p>Añade un pago a un recibo de honorarios.</p>
+        </div>
+
+        <!-- ==================== inventarios.js ==================== -->
+        <h2>Módulo de Inventarios (/api/inventarios)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/reportes/movimiento-articulo</span></div>
+            <p>Genera un reporte del movimiento semanal de un artículo de inventario.</p>
+        </div>
+
+        <!-- ==================== portal_medico.js ==================== -->
+        <h2>Módulo de Portal Médico (/api/portal_medico)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/listado-pacientes</span></div>
+            <p>Obtiene la lista de pacientes agendados para un médico.</p>
+        </div>
+
+        <!-- ==================== presupuestos.js ==================== -->
+        <h2>Módulo de Presupuestos (/api/control_gastos)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/presupuestos</span></div>
+            <p>Obtiene la lista de presupuestos de gastos para una clínica.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/presupuestos</span></div>
+            <p>Crea un nuevo presupuesto de gastos.</p>
+        </div>
+
+        <!-- ==================== recibos.js ==================== -->
+        <h2>Módulo de Recibos (/api/recibos)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/recibo-admision</span></div>
+            <p>Genera un recibo para una admisión y la marca como cerrada. <span class="auth auth-required">Autenticación Requerida.</span></p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-delete">DELETE</span><span class="path">/recibo-admision</span></div>
+            <p>Revierte la generación de un recibo para una admisión. <span class="auth auth-required">Autenticación Requerida.</span></p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/cuadro-pago</span></div>
+            <p>Obtiene el desglose de pago para una admisión.</p>
+        </div>
+
+        <!-- ==================== reportes.js ==================== -->
+        <h2>Módulo de Reportes (/api/reportes)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/control-financiero/calculo-honorarios</span></div>
+            <p>Reporte financiero para el cálculo de honorarios médicos.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/control-financiero/calculo-gastos</span></div>
+            <p>Reporte financiero de gastos.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/control-financiero/gastos-ingresos</span></div>
+            <p>Reporte comparativo de gastos e ingresos.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/cuadre-caja</span></div>
+            <p>Reporte detallado para el cuadre de caja.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/pacientes_localidades</span></div>
+            <p>Reporte demográfico de pacientes por localidad.</p>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/stat-admisiones</span></div>
+            <p>Reporte estadístico de admisiones.</p>
+        </div>
+
+        <!-- ==================== upload.js ==================== -->
+        <h2>Módulo de Subida de Archivos (/api/upload)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/generar-url-subida</span></div>
+            <p>Genera una URL pre-firmada para subir un archivo a Backblaze B2. La URL es válida por 1 hora.</p>
+        </div>
+
+        <div class="footer">
+            <h3>Total de Endpoints Analizados: 183</h3>
+        </div>
+    </div>
+</body>
+</html>
