@@ -137,35 +137,43 @@ router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
   try {
     // 1. Si se envían signos_vitales, crear registro en datos_enfermeria
     if (signos_vitales && Object.keys(signos_vitales).length > 0) {
-      const {
-        presion_arterial,
-        frec_cardiaca,
-        frec_respiratoria,
-        temperatura,
-        sat_oxigeno
-      } = signos_vitales;
+  const {
+    pa_sistolica,
+    pa_diastolica,
+    frec_cardiaca,
+    frec_respiratoria,
+    temperatura,
+    sat_oxigeno,
+    peso,
+    talla
+  } = signos_vitales;
 
-      const queryEnf = `
-        INSERT INTO datos_enfermeria (
-          id_paciente, id_cli, id_usuario, proc_reg,
-          presion_arterial, frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
-          fecha_hora
-        ) VALUES (?, ?, ?, 'Evolucion', ?, ?, ?, ?, ?, NOW())
-      `;
-      const paramsEnf = [
-        id_paciente, id_cli, id_med,
-        presion_arterial || null,
-        frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
-        frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
-        temperatura ? parseFloat(temperatura) : null,
-        sat_oxigeno ? parseInt(sat_oxigeno, 10) : null
-      ];
+  const queryEnf = `
+    INSERT INTO datos_enfermeria (
+      id_paciente, id_cli, id_usuario_registrador, rol_registrador,
+      pa_sistolica, pa_diastolica,
+      frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
+      peso, talla,
+      fecha_hora
+    ) VALUES (?, ?, ?, 'medico', ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+  const paramsEnf = [
+    id_paciente, id_cli, id_med,
+    pa_sistolica ? parseInt(pa_sistolica, 10) : null,
+    pa_diastolica ? parseInt(pa_diastolica, 10) : null,
+    frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
+    frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
+    temperatura ? parseFloat(temperatura) : null,
+    sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
+    peso ? parseFloat(peso) : null,
+    talla ? parseFloat(talla) : null
+  ];
 
-      const resultEnf = await retornarQuery(queryEnf, paramsEnf);
-      if (resultEnf.error) throw new Error('Error al registrar signos vitales');
+  const resultEnf = await retornarQuery(queryEnf, paramsEnf);
+  if (resultEnf.error) throw new Error('Error al registrar signos vitales');
 
-      id_dato_enfermeria = resultEnf.insertId;
-    }
+  id_dato_enfermeria = resultEnf.insertId;
+}
 
     // 2. Insertar evolución
     const queryEvol = `
@@ -315,34 +323,42 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
 
   try {
     // 2. Si hay nuevos signos_vitales, crear nuevo registro (reemplazar enlace)
-    if (signos_vitales && Object.keys(signos_vitales).length > 0) {
-      const {
-        presion_arterial,
-        frec_cardiaca,
-        frec_respiratoria,
-        temperatura,
-        sat_oxigeno
-      } = signos_vitales;
+   if (signos_vitales && Object.keys(signos_vitales).length > 0) {
+  const {
+    pa_sistolica,
+    pa_diastolica,
+    frec_cardiaca,
+    frec_respiratoria,
+    temperatura,
+    sat_oxigeno,
+    peso,
+    talla
+  } = signos_vitales;
 
-      const queryEnf = `
-        INSERT INTO datos_enfermeria (
-          id_paciente, id_cli, id_usuario_registrador, rol_registrador,
-          presion_arterial, frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
-          fecha_hora
-        ) VALUES (?, ?, ?, 'medico', ?, ?, ?, ?, ?, NOW())
-      `;
-      const paramsEnf = [
-        id_paciente, id_cli, id_med,
-        presion_arterial || null,
-        frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
-        frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
-        temperatura ? parseFloat(temperatura) : null,
-        sat_oxigeno ? parseInt(sat_oxigeno, 10) : null
-      ];
+  const queryEnf = `
+    INSERT INTO datos_enfermeria (
+      id_paciente, id_cli, id_usuario_registrador, rol_registrador,
+      pa_sistolica, pa_diastolica,
+      frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
+      peso, talla,
+      fecha_hora
+    ) VALUES (?, ?, ?, 'medico', ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+  const paramsEnf = [
+    id_paciente, id_cli, id_med,
+    pa_sistolica ? parseInt(pa_sistolica, 10) : null,
+    pa_diastolica ? parseInt(pa_diastolica, 10) : null,
+    frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
+    frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
+    temperatura ? parseFloat(temperatura) : null,
+    sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
+    peso ? parseFloat(peso) : null,
+    talla ? parseFloat(talla) : null
+  ];
 
-      const resultEnf = await retornarQuery(queryEnf, paramsEnf);
-      id_dato_enfermeria = resultEnf.insertId;
-    }
+  const resultEnf = await retornarQuery(queryEnf, paramsEnf);
+  id_dato_enfermeria = resultEnf.insertId;
+}
 
     // 3. Campos permitidos para actualizar
     const allowed = [
@@ -452,6 +468,106 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
       }
     });
 
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/dashboard/paciente/:id_paciente/signos-vitales', authenticateToken, async (req, res) => {
+  const { id_paciente } = req.params;
+  if (!id_paciente || isNaN(id_paciente)) {
+    return res.status(400).json({ success: false, error: 'id_paciente inválido' });
+  }
+
+  const query = `
+    SELECT 
+      id_dato_enfermeria,
+      pa_sistolica,
+      pa_diastolica,
+      frec_cardiaca,
+      frec_respiratoria,
+      temperatura,
+      sat_oxigeno,
+      peso,
+      talla,
+      fecha_hora,
+      rol_registrador,
+      id_usuario_registrador
+    FROM datos_enfermeria
+    WHERE id_paciente = ?
+    ORDER BY fecha_hora ASC
+  `;
+
+  try {
+    const result = await retornarQuery(query, [id_paciente]);
+    return res.json({ success: true, datos: result });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async (req, res) => {
+  const { id_paciente } = req.params;
+  if (!id_paciente || isNaN(id_paciente)) {
+    return res.status(400).json({ success: false, error: 'id_paciente inválido' });
+  }
+
+  const query = `
+    (
+      SELECT 
+        'consulta' AS tipo,
+        id_consulta AS id_registro,
+        NULL AS id_evolucion,
+        id_consulta,
+        NULL AS id_med_evolution,
+        fecha_hora,
+        motivo AS titulo,
+        NULL AS estado_paciente,
+        NULL AS firmada
+      FROM consultas
+      WHERE id_paciente = ?
+    )
+    UNION ALL
+    (
+      SELECT 
+        'evolucion' AS tipo,
+        id_evolucion AS id_registro,
+        id_evolucion,
+        NULL AS id_consulta,
+        id_med AS id_med_evolution,
+        fecha_hora,
+        CONCAT('Evolución ', te.nombre) AS titulo,
+        estado_paciente,
+        firmada
+      FROM evoluciones e
+      LEFT JOIN tipos_evolucion te ON e.tipo_evolucion = te.id_tipo
+      WHERE e.id_paciente = ?
+    )
+    ORDER BY fecha_hora DESC
+  `;
+
+  try {
+    const result = await retornarQuery(query, [id_paciente, id_paciente]);
+    return res.json({ success: true, datos: result });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/catalogos/tipos-evolucion', authenticateToken, async (req, res) => {
+  const query = `
+    SELECT id_tipo, nombre
+    FROM tipos_evolucion
+    WHERE activo = 1
+    ORDER BY nombre
+  `;
+
+  try {
+    const result = await retornarQuery(query, []);
+    return res.json({ success: true, datos: result });
   } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ success: false, error: error.message });
