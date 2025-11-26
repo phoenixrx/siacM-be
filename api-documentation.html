@@ -1184,7 +1184,7 @@
 <div class="endpoint">
   <div class="endpoint-header">
     <span class="method method-get">GET</span>
-    <span class="path">/api/especialidades/:id_cli</span>
+    <span class="path">/api/configuraciones/especialidades/:id_cli</span>
   </div>
   <p>Obtiene la lista de especialidades asociadas a una clínica.</p>
   <span class="auth auth-none">Autenticación: Ninguna</span>
@@ -1199,7 +1199,7 @@
 <div class="endpoint">
   <div class="endpoint-header">
     <span class="method method-post">POST</span>
-    <span class="path">/api/especialidades/:id_cli</span>
+    <span class="path">/api/especialidades/especialidades/:id_cli</span>
   </div>
   <p>Crea una nueva especialidad asociada a una clínica.</p>
   <span class="auth auth-bearer">Autenticación: BEARER</span>
@@ -1218,7 +1218,7 @@
 <div class="endpoint">
   <div class="endpoint-header">
     <span class="method method-patch">PATCH</span>
-    <span class="path">/api/especialidades/:id_especialidad</span>
+    <span class="path">/api/configuraciones/especialidades/:id_especialidad</span>
   </div>
   <p>Actualiza los datos de una especialidad existente.</p>
   <span class="auth auth-bearer">Autenticación: BEARER</span>
@@ -1252,7 +1252,108 @@
     </ul>
   </div>
 </div>
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-post">POST</span>
+    <span class="path">/api/portal_medico/evoluciones/:id_cli</span>
+  </div>
+  <p>Crea una nueva evolución clínica para un paciente.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_cli</code> ID de la clínica (número entero válido).</li>
+    </ul>
+    <h4>Request Body:</h4>
+    <ul>
+      <li><code>id_paciente</code> número entero, obligatorio.</li>
+      <li><code>id_consulta</code> número entero, opcional.</li>
+      <li><code>id_med</code> número entero, obligatorio (ID del médico).</li>
+      <li><code>tipo_evolucion</code> número entero, obligatorio (ID del tipo de evolución).</li>
+      <li><code>motivo</code> string, opcional.</li>
+      <li><code>estado_paciente</code> string, obligatorio. Valores válidos: <code>estable</code>, <code>mejoria</code>, <code>estacionario</code>, <code>empeoramiento</code>, <code>critico</code>.</li>
+      <li><code>hallazgos</code> string, opcional.</li>
+      <li><code>resultados_estudios</code> string, opcional.</li>
+      <li><code>plan</code> string, opcional.</li>
+      <li><code>notas_adicionales</code> string, opcional.</li>
+      <li><code>signos_vitales</code> objeto opcional con campos: <code>presion_arterial</code> (string), <code>frec_cardiaca</code>, <code>frec_respiratoria</code>, <code>temperatura</code>, <code>sat_oxigeno</code> (todos numéricos).</li>
+    </ul>
+  </div>
+</div>
 
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-get">GET</span>
+    <span class="path">/api/portal_medico/evoluciones/paciente/:id_paciente</span>
+  </div>
+  <p>Obtiene el historial de evoluciones de un paciente, ordenado de más reciente a más antiguo.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_paciente</code> ID del paciente (número entero válido).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-get">GET</span>
+    <span class="path">/api/portal_medico/evoluciones/:id_evolucion</span>
+  </div>
+  <p>Obtiene los detalles completos de una evolución específica, incluyendo signos vitales si existen.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_evolucion</code> ID de la evolución (número entero válido).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-patch">PATCH</span>
+    <span class="path">/api/portal_medico/evoluciones/:id_evolucion</span>
+  </div>
+  <p>Actualiza una evolución existente (solo si no está firmada).</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_evolucion</code> ID de la evolución (número entero válido).</li>
+    </ul>
+    <h4>Request Body (campos opcionales):</h4>
+    <ul>
+      <li><code>id_consulta</code> número entero.</li>
+      <li><code>tipo_evolucion</code> número entero.</li>
+      <li><code>motivo</code> string.</li>
+      <li><code>estado_paciente</code> string. Valores válidos: <code>estable</code>, <code>mejoria</code>, <code>estacionario</code>, <code>empeoramiento</code>, <code>critico</code>.</li>
+      <li><code>hallazgos</code> string.</li>
+      <li><code>resultados_estudios</code> string.</li>
+      <li><code>plan</code> string.</li>
+      <li><code>notas_adicionales</code> string.</li>
+      <li><code>signos_vitales</code> objeto opcional (mismo formato que en POST). Si se envía, reemplaza los signos vitales anteriores.</li>
+    </ul>
+    <p><em>Nota: No se puede editar una evolución ya firmada.</em></p>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-post">POST</span>
+    <span class="path">/api/portal_medico/evoluciones/:id_evolucion/firmar</span>
+  </div>
+  <p>Firma una evolución clínica. Solo puede hacerlo el médico que la creó.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_evolucion</code> ID de la evolución (número entero válido).</li>
+    </ul>
+    <p><em>Nota: La evolución debe existir y no estar previamente firmada.</em></p>
+  </div>
+</div>
 
     </div>
 </body>
