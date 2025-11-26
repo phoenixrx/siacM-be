@@ -1118,4 +1118,125 @@ if (direccion !== undefined && direccion !== null && direccion.trim() === '') {
   }
 })
 
+router.get('/especialidades/:id_cli',  async (req, res) => {
+  const {id_cli} = req.params;
+   if (!id_cli) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+  if(isNaN(id_cli)){
+    return res.status(400).json({ error: 'Campos no validos' });
+  }
+  
+  let query = `SELECT 
+    id_especialidad,
+    descripcion,
+    activo
+FROM 
+    especialidades
+WHERE 
+    id_cli = ?;`;
+
+  try {
+    const result = await retornarQuery(query, [id_cli]);
+    if(result.error){
+      throw new Error(error);
+    }
+    return res.json({
+      success: true,
+      datos: result
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });    
+  }
+})
+
+router.post('/especialidades/:id_cli', authenticateToken, async (req, res) => {
+  const {descripcion} = req.body
+  const {id_cli} = req.params;
+  if (!id_cli) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+  if(isNaN(id_cli)){
+    return res.status(400).json({ error: 'Campos no validos' });
+  }
+  if (!descripcion) { 
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+if(descripcion!== null && descripcion!== undefined && descripcion.trim()==''){
+    return res.status(400).json({
+      success:false,
+      error:'La descripcion no puede estar vacia'
+    });
+  }
+
+  let query = `
+  INSERT INTO especialidades (descripcion, id_cli, activo)
+  VALUES (?, ?, 1);`;
+
+  try {
+    const result = await retornarQuery(query, [descripcion, id_cli]);
+    if(result.error){
+      throw new Error(error);
+    }
+    return res.json({
+      success: true,
+      datos: result
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });    
+  }
+})
+
+router.patch('/especialidades/:id_especialidad', authenticateToken, async (req, res) => {
+  const {id_especialidad} = req.params;
+  
+  if (!id_especialidad) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  }
+
+  const allowed =  [
+    'descripcion', 'activo'
+  ];
+
+  if(req.body.descripcion!== null && req.body.descripcion!== undefined && req.body.descripcion.trim()==''){
+    return res.status(400).json({
+      success:false,
+      error:'La descripcion no puede estar vacia'
+    });
+  }
+
+   const whereConditions = {
+      id_especialidad: parseInt(id_especialidad, 10)
+    };
+  const update = buildUpdateQuery('especialidades', allowed, req.body, whereConditions);
+  if (!update) {
+    registrarErrorPeticion(req, "No hay campos para actualizar");
+      return res.json({
+          success:false,
+          datos:"No hay campos para actualizar"
+        }); 
+      }
+  try {
+    const result = await retornarQuery(update.query, update.values);
+    return res.json({
+      success: true,
+      datos: result
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });    
+  }
+})
+      
 module.exports = router;

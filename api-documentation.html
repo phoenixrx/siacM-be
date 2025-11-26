@@ -76,6 +76,13 @@
         </div>
 
         <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">POST</span><span class="path">/api/admisiones/crear-nota/:id_paciente</span></div>
+            <p>Crea/elimina las notas de admision de un paciente.</p>
+            <span class="auth auth-none">Autenticación: Bearer</span>
+            <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_paciente</code> (Requerido): ID numérico del paciente.</li><li><code>nota</code> (Opcional): La nota a mostrar del paciente (si esta vacio, elimina las notas anteriores).</li><code>id_cli</code>(requerido) identificador de la clinica.</li></ul></div>
+        </div>
+
+        <div class="endpoint">
             <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/doctors/citas</span></div>
             <p>Obtiene las citas ocupadas de un médico en una fecha específica.</p>
             <span class="auth auth-none">Autenticación: Ninguna</span>
@@ -108,6 +115,194 @@
             <span class="auth auth-none">Autenticación: Ninguna</span>
             <div class="details-section"><h4>Query Parameters:</h4><ul><li><code>id_paciente</code> (Opcional): ID numérico del paciente.</li><li><code>cedula</code> (Opcional): Número de cédula.</li><li><code>tipo_cedula</code> (Opcional): Tipo de cédula (e.g., 'V', 'E').</li></ul></div>
         </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/pacientes/busqueda</span></div>
+            <p>Obtiene todos los datos de un paciente.</p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+            <div class="details-section"><h4>Query Parameters</h4><ul><li><code>tipo_cedula</code> V,E,M,J,P,G.</li><li><code>cedula</code>string mayor a 3 caracteres.</li><li><code>nombres</code>string mayor a 3 caracteres.</li><li><code>apellido</code>string mayor a 3 caracteres.</li><li><code>sexo</code>string M o F</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/admisiones/cambiar-precio-tasa/:id_admision</span></div>
+            <p>A partir de la admision se cambia la tasa y el valor en bs toda la admision.</p>
+            <span class="auth auth-none">Autenticación: BEARER</span>
+            <div class="details-section"><h4>Request Body:</h4><ul><li><code>tasa</code>numeric</li></ul></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <span class="path">/api/admisiones/crear-nota/:id_paciente</span>
+            </div>
+            <p>Creacion de notas del paciente.</p>
+            <span class="auth auth-none">Autenticación: BEARER</span>
+            <div class="details-section"><h4>Request Body:</h4>
+                <ul>
+                    <li><code>nota</code>La nota que se mostrara en el modulo referente al paciente</li>
+                    <li><code>id_cli</code>identificador de la clinica</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method method-get">POST</span>aqui
+                <span class="path">/api/admisiones/ficha/:id_admision</span>
+            </div>
+            <p>Retorna todos los datos de la admision.</p>
+            <span class="auth auth-none">NONE</span>            
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method method-post">POST</span>
+                <span class="path">/api/admisiones/admisiones-abiertas/</span>
+            </div>
+            <p>Muestra un listado resumido de las admisiones pendientes de cobro.</p>
+            <span class="auth auth-none">NONE</span>
+            <div class="details-section"><h4>Request Query:</h4>
+                <ul>
+                    <li><code>id_paciente</code>El id del paciente </li>
+                    <li><code>id_cli</code>identificador de la clinica</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method method-delete">DELETE</span>
+                <span class="path">/api/admisiones/admision/:id_admision</span>
+            </div>
+            <p>Comienza una transaccion para eliminar una admision.</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Request BODY:</h4>
+                <ul>
+                    <li><code>usuario</code>{string} Usuario que realiza la eliminacion</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/configuraciones/datos-empresas/:id_cli</span></div>
+            <p>Obtiene todos los datos de la empresa asociada a un ID de clínica.</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Parameters:</h4><ul><li><code>id_cli</code> (Requerido numrico): ID de la clínica.</li></ul></div>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/configuraciones/datos-usuario-basico-empresa/:id_usuario</span></div>
+            <p>A partir de el id_cli (id_usuario) modifica algunos datos de la clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>tipo_cedula</code> V,E,M,J,P,G.</li>
+                    <li><code>id_estado</code>numerico</li>
+                    <li><code>id_municipio</code>numerico</li>
+                    <li><code>id_parroquia</code>numerico</li>                    
+                    <li><code>direccion</code>string</li>                    
+                    <li><code>fecha_nacimiento</code>YYYY-MM-DD</li>
+                </ul>
+            </div>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/configuraciones/datos-usuario-empresa/:id_cli</span></div>
+            <p>A partir de el id_cli modifica algunos datos de la clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>web</code>string</li>
+                    <li><code>telefono</code>string</li>
+                    <li><code>correo</code>string</li>
+                    <li><code>contacto</code>string</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/configuraciones/tipos-internos/:id_cli</span></div>
+            <p>Guarda los datos del tipo para una clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>id_cli</code>codigo de la clinica</li>
+                    <li><code>descripcion</code>Nombre del tipo</li>
+                    <li><code>nota</code>Nota aclaratoria sobre el tipo</li>                    
+                </ul>
+            </div>
+        </div>
+
+        
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">POST</span><span class="path">/api/configuraciones/formas-pago/:id_cli</span></div>
+            <p>Guarda los datos de formas de pago para una clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>id_cli</code>codigo de la clinica</li>
+                    <li><code>descripcion</code>Nombre del tipo</li>
+                    <li><code>nota</code>Nota aclaratoria sobre el tipo</li>   
+                    <li><code>id_moneda</code>id de la moneda usada en el tipo de pago</li>   
+                    <li><code>is_credit</code>{1,0} indica si la forma de pago es a credito (1) o no (0)   </li>                    
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/configuraciones/formas-pago/:id_forma</span></div>
+            <p>Modifica algun dato de formas de pago para una clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>descripcion</code>Nombre del tipo</li>
+                    <li><code>nota</code>Nota aclaratoria sobre el tipo</li>                       
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/configuraciones/formas-pago/:id_cli</span></div>
+            <p>Devuelve todos los datos de formas de pago para una clinica {xor}</p>
+            <span class="auth auth-none">Autenticación: ninguna</span>
+        </div>
+
+  
+  <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/admisiones/insumo-entrega-consultorio/:id_insumo</span></div>
+            <p>Guarda los datos de formas de pago para una clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req QUERY:</h4>
+                <ul>
+                    <li><code>id_consultorio</code>Consultorio que se va a examinar</li>
+                </ul>
+            </div>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/configuraciones/tipos-internos/:id_tipo</span></div>
+            <p>A partir de el id_tipo modifica algunos datos del tipo</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>descripcion</code>Nombre del tipo</li>
+                    <li><code>nota</code>Nota aclaratoria sobre el tipo</li>                    
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-patch">PATCH</span><span class="path">/api/configuraciones/cambiar-logos/</span></div>
+            <p>A partir de el id_cli y el logo seleccionado (logo_empresa, logo2_empresa, logo_perfil) modifica el logo de la clinica</p>
+            <span class="auth auth-none">Autenticación: BEARER TOKEN</span>
+            <div class="details-section"><h4>Req Body:</h4>
+                <ul>
+                    <li><code>foto</code> Archivo de imagen (multipart/form-data)</li>
+                    <li><code>id_cli</code>numerico</li>
+                    <li><code>logo_empresa</code>numerico</li>
+                    <li><code>logo2_empresa</code>numerico</li>
+                    <li><code>logo_perfil</code>numerico</li>
+                </ul>
+            </div>
+        </div>        
+     
 
         <div class="endpoint">
             <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/tipo_admision</span></div>
@@ -153,7 +348,12 @@
 
         <div class="endpoint">
             <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/bcv</span></div>
-            <p>Obtiene las tasas de cambio actuales desde la página del Banco Central de Venezuela (BCV).</p>
+            <p>Obtiene las tasas de cambio actuales desde la página del Banco Central de Venezuela (BCV). Como fallback se utiliza la de banesco </p>
+            <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/banesco</span></div>
+            <p>Obtiene las tasas de cambio actuales desde la página del Banesco.</p>
             <span class="auth auth-none">Autenticación: Ninguna</span>
         </div>
 
@@ -166,6 +366,16 @@
     "tipos_consulta": ["P", "S"], "status_cierre": "abierto", "activos": [1],
     "page": 1, "perPage": 50, "agrupado": "n"
 }</pre></div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">PATCH</span><span class="path">/api/admisiones/admision_detalle/:id_admidet</span></div>
+            <p>Actualiza parcialmente los detalles de una Admision.</p>
+            <span class="auth auth-none">Autenticación: BEARER</span>
+            <div class="details-section"><h4>Request Body:</h4><pre>{
+                    "set_clause": 123
+                }</pre>
+            </div>
         </div>
 
         <div class="endpoint">
@@ -557,6 +767,7 @@
             <span class="auth auth-none">Autenticación: Ninguna</span>
         </div>
 
+
         <div class="endpoint">
             <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/reportes/comisiones_referido</span></div>
             <p>Genera un reporte de comisiones para referidos.</p>
@@ -591,6 +802,11 @@
             <div class="endpoint-header"><span class="method method-get">GET</span><span class="path">/api/reportes/record_medico</span></div>
             <p>Genera un reporte de los procedimientos realizados por cada médico en un período.</p>
             <span class="auth auth-none">Autenticación: Ninguna</span>
+        </div>
+        <h2>Obtenere las versiones del sistema (/api/news/:id_cli?page=1&limit=10)</h2>
+        <div class="endpoint">
+            <div class="endpoint-header"><span class="method method-post">GET</span><span class="path">/api/news/:id_cli?page=1&limit=10</span></div>
+            <p>Devuelve un json conteniendo las versiones del sistema.</p>
         </div>
 
         <!-- ==================== /cargar_query ==================== -->
@@ -629,7 +845,23 @@
                 <details><summary>[23] - Obtener cajas y sus controles</summary><pre>SELECT cajas.*, facturas_controles.num_factura, facturas_controles.num_control, facturas_controles.num_recibo, facturas_controles.prefijo_factura, facturas_controles.prefijo_recibo FROM cajas INNER JOIN facturas_controles ON facturas_controles.id_caja=cajas.id where cajas.id_cli IN (0, ?);</pre></details>
                 <details><summary>[24] - Obtener usuarios asignados a una caja</summary><pre>SELECT u.usuario, cu.id FROM caja_usuarios cu INNER JOIN usuarios u ON cu.id_usuario = u.id WHERE cu.id_caja=?;</pre></details>
                 <details><summary>[25] - Obtener usuarios activos de una empresa</summary><pre>SELECT u.id, u.usuario FROM usuarios u INNER JOIN perfil_usuario_basico pub ON u.id=pub.id_usuario WHERE pub.id_usuario_empresa=? AND u.activo=1;</pre></details>
-
+                <details><summary>[26] - Obtener la ultima tasa usada en una empresa</summary><pre>SELECT tasa FROM admisiones where id_cli=? ORDER BY id_admision DESC LIMIT 1;</pre></details>
+                <details><summary>[27] - Obtener las preferencias de noticias del usuario</summary><pre>SELECT mostrar_news FROM perfil_usuario_basico WHERE id_usuario=?;</pre></details>
+                <details><summary>[28] - Actualiza las preferencia de animaciones del usuario</summary><pre>UPDATE usuarios SET animaciones =? WHERE id_usuario=?;</pre></details>                
+                <details><summary>[29] - Obtener los tipos de admisiones ocupacionales</summary><pre>SELECT * FROM aps_ocupacional_tipos WHERE id_cli IN (0, ?) and activo=1;</pre></details>                
+                <details><summary>[30] - Obtener las subempresas de una empresa</summary><pre>"SELECT id_subempresa AS id, descripcion FROM subempresas WHERE activo ='1' and id_empresa=?"</pre></details>                
+                <details><summary>[31] - Obtener listado de combos de estudios</summary><pre>"SELECT id_combo_estudio, descripcion FROM combos_estudios where id_cli = ? and activo ='1'"</pre></details>                
+                <details><summary>[32] - Obtener el precio del combo seleccionado</summary><pre>"SELECT sum(precio_usd) as precio FROM combos_estudios_det where id_combo = ?"</pre></details>                
+                <details><summary>[33] - Obtener los grupos de usuarios</summary><pre>"SELECT * FROM grupos_usuarios WHERE id_cli = ? and activo ='1'"</pre></details>                               
+                <details><summary>[34] - Obtener tipos internos activos</summary><pre>SELECT * FROM tipos_interno WHERE id_cli =?;</pre></details>
+                <details><summary>[35] - Obtener el precio para un insumo segun la tarifa</summary><pre>SELECT id_moneda, precio FROM baremo_insumo WHERE id_estudio=? AND id_tarifa=?;</pre></details>
+                <details><summary>[36] - Obtener el precio para un procedimiento segun la tarifa</summary><pre>SELECT id_moneda, precio FROM baremo_estudios WHERE id_estudio=? AND id_tarifa=?;</pre></details>
+                <details><summary>[37] - Obtener los seguros</summary><pre>SELECT * FROM seguros WHERE id_cli =? ;</pre></details>
+                <details><summary>[38] - Obtener las empresas</summary><pre>SELECT * FROM empresas WHERE id_cli =?;</pre></details>
+                <details><summary>[39] - Obtener los grupo de estudios</summary><pre>SELECT * FROM grupo_estudio WHERE id_cli =?;</pre></details>
+                <details><summary>[40] - Obtener los tipo de estudios</summary><pre>SELECT * FROM tipo_estudio WHERE id_cli =?;</pre></details>
+                <details><summary>[41] - Obtener todos los estudios (insumos y pocedimientos) de una clinica</summary><pre>SELECT * FROM estudios WHERE id_cli =?;</pre></details>
+    
                 <h3>Contenedor 1: queries_admisiones</h3>
                 <details><summary>[0] - Obtener datos completos de una admisión</summary><pre>SELECT admisiones.*, admisiones.monto_apro as nota_seguro, ... FROM admisiones INNER JOIN pacientes ON ... WHERE admisiones.id_admision = ?;</pre></details>
                 <details><summary>[1] - Obtener los detalles (estudios) de una admisión</summary><pre>SELECT admisiones_det.precio, ... FROM admisiones_det INNER JOIN estudios ON ... WHERE admisiones_det.id_admision = ?</pre></details>
@@ -638,7 +870,9 @@
                 <details><summary>[4] - Obtener admisiones con detalles (para reportes)</summary><pre>SELECT admisiones.*, ... FROM admisiones INNER JOIN admisiones_det ON ... WHERE admisiones.id_cli = ? AND admisiones.tipo_consulta IN (?) ...</pre></details>
                 <details><summary>[5] - Obtener motivos de cierre de admisión</summary><pre>SELECT id, descripcion from admisiones_cierres_tipo where id_cli IN (?, 0) and activo =1 and id>3</pre></details>
                 <details><summary>[6] - Obtener promociones aplicadas a una admisión</summary><pre>SELECT ad.id_admision_descuento, ... FROM admisiones_descuentos ad INNER JOIN promociones p ON ...</pre></details>
-
+                <details><summary>[7] - Obtener estado de una admisión</summary><pre>SELECT id_status_cierre, id_usuario_cierre, fecha_cierre,motivo_cierre FROM admisiones WHERE id_admision=?</pre></details>
+                <details><summary>[8] - Cambia la moneda usada en el detalle</summary><pre>UPDATE admisiones_det SET id_moneda=? WHERE id_admidet=?</pre></details>
+                
                 <h3>Contenedor 2: queries_agenda</h3>
                 <details><summary>[0] - Contar total de citas pendientes</summary><pre>SELECT count(id_calendario)as total from calendarios where calendarios.status_ag = 'Pendiente' AND calendarios.activo = 1 AND calendarios.id_cli =?</pre></details>
 
@@ -858,9 +1092,168 @@
             <p>Genera una URL pre-firmada para subir un archivo a Backblaze B2. La URL es válida por 1 hora.</p>
         </div>
 
-        <div class="footer">
-            <h3>Total de Endpoints Analizados: 183</h3>
-        </div>
+        <div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-post">POST</span>
+    <span class="path">/api/configuraciones/empresas/:id_cli</span>
+  </div>
+  <p>Registra una nueva empresa asociada a una clínica.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_cli</code> ID de la clínica (número entero válido).</li>
+    </ul>
+    <h4>Request Body:</h4>
+    <ul>
+      <li><code>descripcion</code> string, obligatorio, no puede estar vacío.</li>
+      <li><code>direccion</code> string, opcional, pero si se envía no puede estar vacío.</li>
+      <li><code>rif</code> string, obligatorio, debe tener una letra seguida de 9 dígitos (ej. V123456789).</li>
+      <li><code>telefono</code> string, opcional, pero si se envía no puede estar vacío.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-patch">PATCH</span>
+    <span class="path">/api/configuraciones/empresas/:id_empresa</span>
+  </div>
+  <p>Actualiza los datos de una empresa existente.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_empresa</code> ID de la empresa (número entero válido).</li>
+    </ul>
+    <h4>Request Body (campos opcionales):</h4>
+    <ul>
+      <li><code>descripcion</code> string, si se envía no puede estar vacío.</li>
+      <li><code>direccion</code> string, si se envía no puede estar vacío.</li>
+      <li><code>rif</code> string, si se envía debe tener una letra seguida de 9 dígitos.</li>
+      <li><code>telefono</code> string, si se envía no puede estar vacío.</li>
+      <li><code>activo</code> entero, debe ser 0 o 1.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-post">POST</span>
+    <span class="path">/api/configuraciones/seguros/:id_cli</span>
+  </div>
+  <p>Registra un nuevo seguro asociado a una clínica.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_cli</code> ID de la clínica (número entero válido).</li>
+    </ul>
+    <h4>Request Body:</h4>
+    <ul>
+      <li><code>descripcion</code> string, obligatorio, no puede estar vacío.</li>
+      <li><code>direccion</code> string, obligatorio, no puede estar vacío.</li>
+      <li><code>rif</code> string, obligatorio, debe tener una letra seguida de 9 dígitos (ej. V123456789).</li>
+      <li><code>telefono</code> string, obligatorio, no puede estar vacío.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-patch">PATCH</span>
+    <span class="path">/api/configuraciones/seguros/:id_seguro</span>
+  </div>
+  <p>Actualiza los datos de un seguro existente.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_seguro</code> ID del seguro (número entero válido).</li>
+    </ul>
+    <h4>Request Body (campos opcionales):</h4>
+    <ul>
+      <li><code>descripcion</code> string, si se envía no puede estar vacío.</li>
+      <li><code>direccion</code> string, si se envía no puede estar vacío.</li>
+      <li><code>RIF</code> string, si se envía debe tener una letra seguida de 9 dígitos.</li>
+      <li><code>telefono</code> string, si se envía no puede estar vacío.</li>
+      <li><code>activo</code> entero, debe ser 0 o 1.</li>
+    </ul>
+  </div>
+</div>
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-get">GET</span>
+    <span class="path">/api/especialidades/:id_cli</span>
+  </div>
+  <p>Obtiene la lista de especialidades asociadas a una clínica.</p>
+  <span class="auth auth-none">Autenticación: Ninguna</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_cli</code> ID de la clínica (número entero válido).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-post">POST</span>
+    <span class="path">/api/especialidades/:id_cli</span>
+  </div>
+  <p>Crea una nueva especialidad asociada a una clínica.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_cli</code> ID de la clínica (número entero válido).</li>
+    </ul>
+    <h4>Request Body:</h4>
+    <ul>
+      <li><code>descripcion</code> string, obligatorio, no puede estar vacío.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-patch">PATCH</span>
+    <span class="path">/api/especialidades/:id_especialidad</span>
+  </div>
+  <p>Actualiza los datos de una especialidad existente.</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Path Parameters</h4>
+    <ul>
+      <li><code>id_especialidad</code> ID de la especialidad (número entero válido).</li>
+    </ul>
+    <h4>Request Body (campos opcionales):</h4>
+    <ul>
+      <li><code>descripcion</code> string, si se envía no puede estar vacío.</li>
+      <li><code>activo</code> entero, debe ser 0 o 1.</li>
+    </ul>
+  </div>
+</div>
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="method method-post">POST</span>
+    <span class="path">/api/admisiones/crear-admision-descuento</span>
+  </div>
+  <p>Registra un descuento promocional en una admisión y reduce la cantidad restante de la promoción (si no es ilimitada).</p>
+  <span class="auth auth-bearer">Autenticación: BEARER</span>
+  <div class="details-section">
+    <h4>Request Body:</h4>
+    <ul>
+      <li><code>id_admision</code> número entero, obligatorio.</li>
+      <li><code>id_promocion</code> número entero, obligatorio.</li>
+      <li><code>id_usuario</code> número entero, obligatorio.</li>
+      <li><code>monto</code> número (monto del descuento en moneda local), obligatorio.</li>
+      <li><code>monto_us</code> número (monto del descuento en USD), obligatorio.</li>
+    </ul>
+  </div>
+</div>
+
+
     </div>
 </body>
 </html>
