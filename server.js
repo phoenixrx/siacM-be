@@ -70,13 +70,14 @@ async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, dat
     contents: { en: mensaje },
     data, large_icon
   };
+  const authHeader = `Basic ${process.env.ONESIGNAL_REST_API_KEY}`;
 
   try {
     const response = await fetch('https://onesignal.com/api/v1/notifications ', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Basic os_v2_app_cmkcd63r4vdcvjlvypzl4npijdtomdkey4geyvfb7nevd5qydgjtv6k3t6o26oird2xh4wvusc7pwoon4m2fd2in6av6kufhb7juroa'
+        'Authorization': authHeader
       },
       body: JSON.stringify(payload),
     });
@@ -5071,6 +5072,7 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log('Authorization', authHeader);
 });
 
 //actualizarUUIDs('id_paciente', 'pacientes', 'uuid_paciente');
