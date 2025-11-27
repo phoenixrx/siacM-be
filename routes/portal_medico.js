@@ -98,8 +98,8 @@ router.get('/listado-pacientes', async (req, res) => {
     }
 });
 
-router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
-  const { id_cli } = req.params;
+router.post('/evoluciones/', authenticateToken, async (req, res) => {
+
   const {
     id_paciente,
     id_consulta,
@@ -115,9 +115,10 @@ router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
   } = req.body;
 
   // Validaciones básicas
-  if (!id_cli || isNaN(id_cli)) {
+  if (!req.id_cli || isNaN(req.id_cli)) {
     return res.status(400).json({ success: false, error: 'id_cli inválido' });
   }
+  const id_cli = req.id_cli
   if (!id_paciente || isNaN(id_paciente)) {
     return res.status(400).json({ success: false, error: 'id_paciente es obligatorio y debe ser numérico' });
   }
@@ -132,10 +133,13 @@ router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, error: 'estado_paciente no válido' });
   }
 
+  if(!id_consulta || isNaN(id_consulta)){
+    return res.status(400).json({ success: false, error: 'id_consulta es obligatorio y debe ser numérico' });
+  }
   let id_dato_enfermeria = null;
 
   try {
-    // 1. Si se envían signos_vitales, crear registro en datos_enfermeria
+    
     if (signos_vitales && Object.keys(signos_vitales).length > 0) {
   const {
     pa_sistolica,
@@ -150,15 +154,22 @@ router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
 
   const queryEnf = `
     INSERT INTO datos_enfermeria (
-      id_paciente, id_cli, id_usuario_registrador, rol_registrador,
+      id_paciente,  id_usuario, proc_reg,
       pa_sistolica, pa_diastolica,
       frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
       peso, talla,
-      fecha_hora
-    ) VALUES (?, ?, ?, 'medico', ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      fecha_creacion, id_admision
+    ) VALUES (?, ?, 'Evolucion', ?, ?, ?, ?, ?, ?, ?, ?, NOW(),
+    (select 
+      ad.id_admision 
+    from admisiones_det ad 
+    inner join admisiones a ON a.id_admision=ad.id_admision
+    inner join consultas c ON  c.id_admidet=ad.id_admidet
+    Where c.id_consulta =?) 
+    )
   `;
   const paramsEnf = [
-    id_paciente, id_cli, id_med,
+    id_paciente,  id_med,
     pa_sistolica ? parseInt(pa_sistolica, 10) : null,
     pa_diastolica ? parseInt(pa_diastolica, 10) : null,
     frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
@@ -166,7 +177,8 @@ router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
     temperatura ? parseFloat(temperatura) : null,
     sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
     peso ? parseFloat(peso) : null,
-    talla ? parseFloat(talla) : null
+    talla ? parseFloat(talla) : null, 
+    id_consulta
   ];
 
   const resultEnf = await retornarQuery(queryEnf, paramsEnf);
@@ -201,7 +213,7 @@ router.post('/evoluciones/:id_cli', authenticateToken, async (req, res) => {
     ];
 
     const resultEvol = await retornarQuery(queryEvol, paramsEvol);
-    if (resultEvol.error) throw new Error('Error al crear evolución');
+    if (resultEvol.error) throw new Error(resultEvol.error);
 
     return res.json({
       success: true,
@@ -278,7 +290,7 @@ router.get('/evoluciones/:id_evolucion', authenticateToken, async (req, res) => 
       d.sat_oxigeno,
       d.peso,
       d.talla,
-      d.fecha_hora AS fecha_signos
+      d.fecha_creacion AS fecha_signos
     FROM evoluciones e
     LEFT JOIN tipos_evolucion t ON e.tipo_evolucion = t.id_tipo
     LEFT JOIN medicos m ON e.id_med = m.id_med
@@ -337,15 +349,15 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
 
   const queryEnf = `
     INSERT INTO datos_enfermeria (
-      id_paciente, id_cli, id_usuario_registrador, rol_registrador,
+      id_paciente, id_usuario, proc_reg,
       pa_sistolica, pa_diastolica,
       frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
       peso, talla,
-      fecha_hora
-    ) VALUES (?, ?, ?, 'medico', ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      fecha_creacion
+    ) VALUES (?, ?,  'Evolucion', ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
   const paramsEnf = [
-    id_paciente, id_cli, id_med,
+    id_paciente, id_med,
     pa_sistolica ? parseInt(pa_sistolica, 10) : null,
     pa_diastolica ? parseInt(pa_diastolica, 10) : null,
     frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
@@ -482,25 +494,26 @@ router.get('/dashboard/paciente/:id_paciente/signos-vitales', authenticateToken,
 
   const query = `
     SELECT 
-      id_dato_enfermeria,
-      pa_sistolica,
-      pa_diastolica,
-      frec_cardiaca,
-      frec_respiratoria,
-      temperatura,
-      sat_oxigeno,
-      peso,
-      talla,
-      fecha_hora,
-      rol_registrador,
-      id_usuario_registrador
-    FROM datos_enfermeria
-    WHERE id_paciente = ?
-    ORDER BY fecha_hora ASC
+      de.id_datos_enfermeria,
+      de.pa_sistolica,
+      de.pa_diastolica,
+      de.frec_cardiaca,
+      de.frec_respiratoria,
+      de.temperatura,
+      de.sat_oxigeno,
+      de.peso,
+      de.talla,
+      de.fecha_creacion,
+      de.proc_reg,
+      de.id_usuario
+    FROM datos_enfermeria de
+    inner join admisiones a on a.id_admision = de.id_admision
+    WHERE de.id_paciente = ? and a.id_cli =?
+    ORDER BY fecha_creacion ASC
   `;
 
   try {
-    const result = await retornarQuery(query, [id_paciente]);
+    const result = await retornarQuery(query, [id_paciente, req.id_cli]);
     return res.json({ success: true, datos: result });
   } catch (error) {
     registrarErrorPeticion(req, error);
@@ -517,17 +530,20 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
   const query = `
     (
       SELECT 
-        'consulta' AS tipo,
-        id_consulta AS id_registro,
-        NULL AS id_evolucion,
-        id_consulta,
-        NULL AS id_med_evolution,
-        fecha_hora,
-        motivo AS titulo,
-        NULL AS estado_paciente,
-        NULL AS firmada
-      FROM consultas
-      WHERE id_paciente = ?
+        'consulta' AS tipo, 
+        c.id_consulta AS id_registro, 
+        NULL AS id_evolucion, 
+        c.id_consulta, 
+        NULL AS id_med_evolution, 
+        c.fecha_creacion as fecha_hora, 
+        c.motivo AS titulo, 
+        NULL AS estado_paciente, 
+        NULL AS firmada ,
+        a.id_cli
+    FROM consultas c 
+    INNER JOIN admisiones_det ad on ad.id_admidet = c.id_admidet 
+    INNER join admisiones a on a.id_admision = ad.id_admision 
+    WHERE a.id_paciente = ? AND a.id_cli =?
     )
     UNION ALL
     (
@@ -535,22 +551,28 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         'evolucion' AS tipo,
         id_evolucion AS id_registro,
         id_evolucion,
-        NULL AS id_consulta,
+        id_consulta,
         id_med AS id_med_evolution,
         fecha_hora,
         CONCAT('Evolución ', te.nombre) AS titulo,
         estado_paciente,
-        firmada
+        firmada,
+        id_cli
       FROM evoluciones e
       LEFT JOIN tipos_evolucion te ON e.tipo_evolucion = te.id_tipo
-      WHERE e.id_paciente = ?
+      WHERE e.id_paciente = ? AND e.id_cli =?
     )
     ORDER BY fecha_hora DESC
   `;
 
+  let queryPaciente = `
+  select * from pacientes where id_paciente = ?
+  `
+
   try {
-    const result = await retornarQuery(query, [id_paciente, id_paciente]);
-    return res.json({ success: true, datos: result });
+    const result = await retornarQuery(query, [id_paciente, req.id_cli, id_paciente, req.id_cli]);
+    const paciente =  await retornarQuery(queryPaciente, [id_paciente]);
+    return res.json({ success: true, datos: result, paciente });
   } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ success: false, error: error.message });

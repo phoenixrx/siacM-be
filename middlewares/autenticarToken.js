@@ -51,6 +51,7 @@ const requestQuery = Object.keys(req.query).length > 0
   : null;
     
     req.requestId = requestId;
+    req.id_cli = decoded.id_cli,
     req.logData = {
       id_log_acceso: requestId,
       id_usuario: decoded.id_usuario,
