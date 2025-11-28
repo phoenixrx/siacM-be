@@ -111,10 +111,9 @@ router.post('/evoluciones/', authenticateToken, async (req, res) => {
     resultados_estudios,
     plan,
     notas_adicionales,
-    signos_vitales  // opcional: { presion_arterial, frec_cardiaca, ... }
+    signos_vitales 
   } = req.body;
 
-  // Validaciones básicas
   if (!req.id_cli || isNaN(req.id_cli)) {
     return res.status(400).json({ success: false, error: 'id_cli inválido' });
   }
@@ -183,8 +182,7 @@ router.post('/evoluciones/', authenticateToken, async (req, res) => {
 
   const resultEnf = await retornarQuery(queryEnf, paramsEnf);
   if (resultEnf.error) throw new Error('Error al registrar signos vitales');
-
-  id_dato_enfermeria = resultEnf.insertId;
+  id_dato_enfermeria = resultEnf.data.insertId;
 }
 
     // 2. Insertar evolución
@@ -283,7 +281,8 @@ router.get('/evoluciones/:id_evolucion', authenticateToken, async (req, res) => 
       e.*,
       t.nombre AS tipo_evolucion_nombre,
       CONCAT(m.nombre, ' ', m.apellido) AS medico_nombre,
-      d.presion_arterial,
+      d.pa_sistolica,
+      d.pa_diastolica,
       d.frec_cardiaca,
       d.frec_respiratoria,
       d.temperatura,
@@ -293,7 +292,7 @@ router.get('/evoluciones/:id_evolucion', authenticateToken, async (req, res) => 
       d.fecha_creacion AS fecha_signos
     FROM evoluciones e
     LEFT JOIN tipos_evolucion t ON e.tipo_evolucion = t.id_tipo
-    LEFT JOIN medicos m ON e.id_med = m.id_med
+    LEFT JOIN medicos m ON e.id_med = m.id_medico
     LEFT JOIN datos_enfermeria d ON e.id_dato_enfermeria = d.id_datos_enfermeria
     WHERE e.id_evolucion = ?
   `;
@@ -305,7 +304,7 @@ router.get('/evoluciones/:id_evolucion', authenticateToken, async (req, res) => 
       return res.status(404).json({ success: false, error: 'Evolución no encontrada' });
     }
 
-    return res.json({ success: true, datos: result[0] });
+    return res.json({ success: true, datos: result.data[0]  });
   } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ success: false, error: error.message });
@@ -319,18 +318,18 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
   if (!id_evolucion || isNaN(id_evolucion)) {
     return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
   }
-
+  const id_cli = req.id_cli
   // 1. Verificar que la evolución existe y no está firmada
   const checkQuery = `SELECT firmada, id_paciente, id_cli, id_med FROM evoluciones WHERE id_evolucion = ?`;
   const checkResult = await retornarQuery(checkQuery, [id_evolucion]);
-  if (checkResult.length === 0) {
+  if (checkResult.data.length === 0) {
     return res.status(404).json({ success: false, error: 'Evolución no encontrada' });
   }
-  if (checkResult[0].firmada) {
+  if (checkResult.data[0].firmada) {
     return res.status(400).json({ success: false, error: 'No se puede editar una evolución ya firmada' });
   }
 
-  const { id_paciente, id_cli, id_med } = checkResult[0];
+  const { id_paciente,  id_med } = checkResult.data[0];
   let id_dato_enfermeria = null;
 
   try {
@@ -353,8 +352,13 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
       pa_sistolica, pa_diastolica,
       frec_cardiaca, frec_respiratoria, temperatura, sat_oxigeno,
       peso, talla,
-      fecha_creacion
-    ) VALUES (?, ?,  'Evolucion', ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      fecha_creacion, id_admision
+    ) VALUES (?, ?,  'Evolucion', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), (select 
+      ad.id_admision 
+    from admisiones_det ad 
+    inner join admisiones a ON a.id_admision=ad.id_admision
+    inner join consultas c ON  c.id_admidet=ad.id_admidet
+    Where c.id_consulta =?))
   `;
   const paramsEnf = [
     id_paciente, id_med,
@@ -365,11 +369,12 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
     temperatura ? parseFloat(temperatura) : null,
     sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
     peso ? parseFloat(peso) : null,
-    talla ? parseFloat(talla) : null
+    talla ? parseFloat(talla) : null,
+    updateFields.id_consulta
   ];
 
   const resultEnf = await retornarQuery(queryEnf, paramsEnf);
-  id_dato_enfermeria = resultEnf.insertId;
+  id_dato_enfermeria = resultEnf.data.insertId;
 }
 
     // 3. Campos permitidos para actualizar
@@ -426,7 +431,7 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
   }
 
   // Suponemos que authenticateToken inyecta req.user con el id del usuario autenticado
-  const id_usuario_firma = req.id_usuario; // Ajusta según cómo guardes el ID en el token
+  let id_usuario_firma = req.logData.id_usuario; 
   if (!id_usuario_firma) {
     return res.status(401).json({ success: false, error: 'Usuario no autenticado o sin ID' });
   }
@@ -446,16 +451,23 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
       return res.status(404).json({ success: false, error: 'Evolución no encontrada' });
     }
 
-    const evol = checkResult[0];
+    const evol = checkResult.data[0];
     if (evol.firmada) {
       return res.status(400).json({ success: false, error: 'La evolución ya está firmada' });
     }
 
 
     // solo el médico que la creó pueda firmar:
+    try{
+      let queryUsuario = "SELECT id_especialista FROM perfil_usuario_basico WHERE id_usuario=?"
+      let idMedUsu = await retornarQuery(queryUsuario,[id_usuario_firma])
+      id_usuario_firma=idMedUsu.data[0].id_especialista
+    }catch{
+      return res.status(403).json({ success: false, error: 'Usuario no es especialista' });
+    }
    
     if (evol.id_med !== id_usuario_firma) {
-      return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar esta evolución' });
+      return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar esta evolución', firmas:{evol:evol.id_med, id_usuario_firma} });
     }
   
     // 2. Actualizar como firmada
@@ -482,7 +494,7 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
 
   } catch (error) {
     registrarErrorPeticion(req, error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message, firmas:{evol:evol.id_med, id_usuario_firma} });
   }
 });
 
@@ -539,6 +551,8 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         c.motivo AS titulo, 
         NULL AS estado_paciente, 
         NULL AS firmada ,
+        c.id_admidet,
+        a.id_admision,
         a.id_cli
     FROM consultas c 
     INNER JOIN admisiones_det ad on ad.id_admidet = c.id_admidet 
@@ -557,6 +571,8 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         CONCAT('Evolución ', te.nombre) AS titulo,
         estado_paciente,
         firmada,
+        NULL as id_admidet,
+        NULL as id_admision,
         id_cli
       FROM evoluciones e
       LEFT JOIN tipos_evolucion te ON e.tipo_evolucion = te.id_tipo
