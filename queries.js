@@ -480,6 +480,9 @@ let query_datos_enfermeria = `SELECT  de.id_admision,
                                     de.contacto, 
                                     de.trabajo, 
                                     de.plan_trat, 
+                                    de.id_datos_enfermeria,
+                                    de.pa_diastolica,
+                                    de.pa_sistolica,
                                     p.id_paciente    
                                 FROM 
                                     datos_enfermeria de
@@ -593,8 +596,27 @@ INNER JOIN admisiones a ON a.id_admision=ad.id_admision
 WHERE opp.id_paciente=? 
 LIMIT 1`;
 
+let query_contenedor_reportes =`
+SELECT
+    a.id_paciente,
+    ad.id_admision,
+    ad.id_medico
+FROM
+    admisiones_det ad
+INNER JOIN 
+    admisiones a ON a.id_admision=ad.id_admision
+WHERE ad.id_admidet=?
+`
+
 const portal_med = [
-    historial_pacientes_portal_medico, limpiar_consulta, medicos, query_mobile_historial_paciente, medico_especialidad, med_portal_odontol_proc, query_datos_enfermeria
+    historial_pacientes_portal_medico, 
+    limpiar_consulta, 
+    medicos, 
+    query_mobile_historial_paciente, 
+    medico_especialidad, 
+    med_portal_odontol_proc, 
+    query_datos_enfermeria,
+    query_contenedor_reportes
 ]
 
 let motivos_cierre_admision = `SELECT id, descripcion from admisiones_cierres_tipo where id_cli IN (?, 0) and activo =1 and id>3`

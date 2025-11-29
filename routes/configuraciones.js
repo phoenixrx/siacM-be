@@ -644,11 +644,15 @@ router.post('/formas-pago/:id_cli', authenticateToken, async (req, res) => {
   const {descripcion, id_moneda, is_credit, nota} = req.body
   const {id_cli} = req.params;
   if (!id_cli) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    return res.status(400).json({ error: 'Faltan campos obligatorios 01' });
   }
-  if (!descripcion || !is_credit || !id_moneda) { 
-    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  if (!descripcion ) { 
+    return res.status(400).json({ error: 'Faltan campos obligatorios 02' });
   }
+  if ( !id_moneda) { 
+    return res.status(400).json({ error: 'Faltan campos obligatorios 03' });
+  }
+
   if(isNaN(id_moneda)||isNaN(is_credit) || isNaN(id_cli)){
     return res.status(400).json({ error: 'Campos no validos' });
   }

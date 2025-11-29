@@ -289,11 +289,15 @@ router.get('/evoluciones/:id_evolucion', authenticateToken, async (req, res) => 
       d.sat_oxigeno,
       d.peso,
       d.talla,
-      d.fecha_creacion AS fecha_signos
+      d.fecha_creacion AS fecha_signos,
+      CONCAT(p.nombres, ' ', p.apellidos) AS paciente, 
+      CONCAT(p.tipo_cedula, p.cedula) AS cedula, 
+      p.uuid_paciente
     FROM evoluciones e
     LEFT JOIN tipos_evolucion t ON e.tipo_evolucion = t.id_tipo
     LEFT JOIN medicos m ON e.id_med = m.id_medico
     LEFT JOIN datos_enfermeria d ON e.id_dato_enfermeria = d.id_datos_enfermeria
+    inner join pacientes p ON e.id_paciente=p.id_paciente
     WHERE e.id_evolucion = ?
   `;
 
