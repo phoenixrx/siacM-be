@@ -215,7 +215,7 @@ router.post('/evoluciones/', authenticateToken, async (req, res) => {
 
     return res.json({
       success: true,
-      datos: { id_evolucion: resultEvol.insertId, id_dato_enfermeria }
+      datos: { id_evolucion: resultEvol.data.insertId, id_dato_enfermeria }
     });
 
   } catch (error) {
@@ -610,6 +610,393 @@ router.get('/catalogos/tipos-evolucion', authenticateToken, async (req, res) => 
   try {
     const result = await retornarQuery(query, []);
     return res.json({ success: true, datos: result });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/recetas/:id_evolucion', authenticateToken, async (req, res) => {
+  const { id_evolucion } = req.params;
+  const {
+    id_consulta,         
+    nombre_medicamento,
+    dosis,
+    via_administracion,
+    frecuencia,
+    duracion,
+    indicaciones
+  } = req.body;
+
+  // Validar id_evolucion
+  if (id_evolucion === undefined || id_evolucion === null || (id_evolucion !== '0' && isNaN(id_evolucion))) {
+    return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
+  }
+
+  const required = ['nombre_medicamento', 'dosis', 'via_administracion', 'frecuencia', 'duracion'];
+  for (const field of required) {
+    if (!req.body[field] || req.body[field].toString().trim() === '') {
+      return res.status(400).json({ success: false, error: `El campo ${field} es obligatorio` });
+    }
+  }
+
+  try {
+    let evolId, id_paciente, id_med, id_cli;
+ let consultaResult, evolResult;
+    if (id_evolucion === '0') {
+      // === Crear evolución automática ===
+      if (!id_consulta || isNaN(id_consulta)) {
+        return res.status(400).json({ success: false, error: 'id_consulta es obligatorio cuando id_evolucion = 0' });
+      }
+
+      consultaResult = await retornarQuery(
+        `SELECT a.id_paciente, ad.id_medico, a.id_cli FROM consultas c
+        inner join admisiones_det ad on ad.id_admidet = c.id_admidet
+        inner join admisiones a on a.id_admision = ad.id_admision
+        WHERE id_consulta = ?`,
+        [id_consulta]
+      );
+      if (consultaResult.data?.length === 0) {
+        return res.status(400).json({ success: false, error: 'Consulta no encontrada' });
+      }
+      const { id_paciente: c_pac, id_medico: c_med, id_cli: c_cli } = consultaResult.data[0];
+
+      evolResult = await retornarQuery(
+        `INSERT INTO evoluciones (
+          id_paciente, id_consulta, id_med, id_cli,
+          tipo_evolucion, estado_paciente, motivo, firmada, fecha_hora
+        ) VALUES (?, ?, ?, ?, 8, 'estable', 'Generada desde receta', FALSE, NOW())`,
+        [c_pac, id_consulta, c_med, c_cli]
+      );
+
+      evolId = evolResult.data.insertId;
+      id_paciente = c_pac;
+      id_med = c_med;
+      id_cli = c_cli;
+
+    } else {
+      // === Usar evolución existente ===
+      evolResult = await retornarQuery(
+        `SELECT id_paciente, id_med, id_cli FROM evoluciones WHERE id_evolucion = ? AND firmada = FALSE`,
+        [id_evolucion]
+      );
+      if (evolResult.data.length === 0) {
+        return res.status(400).json({ success: false, error: 'Evolución no encontrada o ya firmada' });
+      }
+      const { id_paciente: e_pac, id_med: e_med, id_cli: e_cli } = evolResult.data[0];
+      evolId = id_evolucion;
+      id_paciente = e_pac;
+      id_med = e_med;
+      id_cli = e_cli;
+    }
+
+    // Crear receta
+    const result = await retornarQuery(
+      `INSERT INTO recetas (
+        id_evolucion, id_paciente, id_med, id_cli,
+        nombre_medicamento, dosis, via_administracion, frecuencia, duracion, indicaciones,
+        fecha_hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        evolId, id_paciente, id_med, id_cli,
+        nombre_medicamento.trim(),
+        dosis.trim(),
+        via_administracion.trim(),
+        frecuencia.trim(),
+        duracion.trim(),
+        indicaciones ? indicaciones.trim() : null
+      ]
+    );
+
+    return res.json({ success: true, datos: { id_receta: result.data.insertId, id_evolucion: evolId },consultaResult, evolResult, result });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/tratamientos/:id_evolucion', authenticateToken, async (req, res) => {
+  const { id_evolucion } = req.params;
+  const {
+    id_consulta,         
+    descripcion,
+    tipo_tratamiento
+  } = req.body;
+
+  if (id_evolucion === undefined || id_evolucion === null || (id_evolucion !== '0' && isNaN(id_evolucion))) {
+    return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
+  }
+
+  if (!descripcion || descripcion.trim() === '') {
+    return res.status(400).json({ success: false, error: 'La descripción es obligatoria' });
+  }
+  if (!tipo_tratamiento || tipo_tratamiento.trim() === '') {
+    return res.status(400).json({ success: false, error: 'El tipo de tratamiento es obligatorio' });
+  }
+
+  try {
+    let evolId, id_paciente, id_med, id_cli;
+
+    if (id_evolucion === '0') {
+      // === Crear evolución automática ===
+      if (!id_consulta || isNaN(id_consulta)) {
+        return res.status(400).json({ success: false, error: 'id_consulta es obligatorio cuando id_evolucion = 0' });
+      }
+
+      const consultaResult = await retornarQuery(
+        `SELECT id_paciente, id_med, id_cli FROM consultas WHERE id_consulta = ?`,
+        [id_consulta]
+      );
+      if (consultaResult.data.length === 0) {
+        return res.status(400).json({ success: false, error: 'Consulta no encontrada' });
+      }
+      const { id_paciente: c_pac, id_med: c_med, id_cli: c_cli } = consultaResult.data[0];
+
+      const evolResult = await retornarQuery(
+        `INSERT INTO evoluciones (
+          id_paciente, id_consulta, id_med, id_cli,
+          tipo_evolucion, estado_paciente, motivo, firmada, fecha_hora
+        ) VALUES (?, ?, ?, ?, 8, 'estable', 'Generada desde tratamiento', FALSE, NOW())`,
+        [c_pac, id_consulta, c_med, c_cli]
+      );
+
+      evolId = evolResult.data.insertId;
+      id_paciente = c_pac;
+      id_med = c_med;
+      id_cli = c_cli;
+
+    } else {
+      // === Usar evolución existente ===
+      const evolResult = await retornarQuery(
+        `SELECT id_paciente, id_med, id_cli FROM evoluciones WHERE id_evolucion = ? AND firmada = FALSE`,
+        [id_evolucion]
+      );
+      if (evolResult.data.length === 0) {
+        return res.status(400).json({ success: false, error: 'Evolución no encontrada o ya firmada' });
+      }
+      const { id_paciente: e_pac, id_med: e_med, id_cli: e_cli } = evolResult.data[0];
+      evolId = id_evolucion;
+      id_paciente = e_pac;
+      id_med = e_med;
+      id_cli = e_cli;
+    }
+
+    // Crear tratamiento
+    const result = await retornarQuery(
+      `INSERT INTO tratamientos (
+        id_evolucion, id_paciente, id_med, id_cli,
+        descripcion, tipo_tratamiento, fecha_hora
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        evolId, id_paciente, id_med, id_cli,
+        descripcion.trim(),
+        tipo_tratamiento.trim()
+      ]
+    );
+
+    return res.json({ success: true, datos: { id_tratamiento: result.data.insertId, id_evolucion: evolId } });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/ordenes-estudios/:id_evolucion', authenticateToken, async (req, res) => {
+  const { id_evolucion } = req.params;
+  const {
+    id_consulta,           // solo requerido si id_evolucion = 0
+    id_tipo_estudio,
+    descripcion,
+    motivo,
+    fecha_ejecucion
+  } = req.body;
+
+  // Validar id_evolucion
+  if (id_evolucion === undefined || id_evolucion === null || (id_evolucion !== '0' && isNaN(id_evolucion))) {
+    return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
+  }
+
+  // Validar campos comunes
+  if (!id_tipo_estudio || isNaN(id_tipo_estudio)) {
+    return res.status(400).json({ success: false, error: 'id_tipo_estudio inválido' });
+  }
+  if (!descripcion || descripcion.trim() === '') {
+    return res.status(400).json({ success: false, error: 'La descripción del estudio es obligatoria' });
+  }
+
+  try {
+    let evolId, id_paciente, id_med, id_cli;
+
+    if (id_evolucion === '0') {
+      // === CASO ESPECIAL: crear evolución automática ===
+      if (!id_consulta || isNaN(id_consulta)) {
+        return res.status(400).json({ success: false, error: 'id_consulta es obligatorio cuando id_evolucion = 0' });
+      }
+
+      // 1. Obtener contexto de la consulta
+      const consultaResult = await retornarQuery(
+        `SELECT id_paciente, id_med, id_cli FROM consultas WHERE id_consulta = ?`,
+        [id_consulta]
+      );
+      if (consultaResult.data.length === 0) {
+        return res.status(400).json({ success: false, error: 'Consulta no encontrada' });
+      }
+      const { id_paciente: c_pac, id_med: c_med, id_cli: c_cli } = consultaResult.data[0];
+
+      // 2. Crear evolución mínima
+      const evolResult = await retornarQuery(
+        `INSERT INTO evoluciones (
+          id_paciente, id_consulta, id_med, id_cli,
+          tipo_evolucion, estado_paciente, motivo, firmada, fecha_hora
+        ) VALUES (?, ?, ?, ?, 8, 'estable', 'Generada desde orden de estudio', FALSE, NOW())`,
+        [c_pac, id_consulta, c_med, c_cli]
+      );
+
+      evolId = evolResult.data.insertId;
+      id_paciente = c_pac;
+      id_med = c_med;
+      id_cli = c_cli;
+
+    } else {
+      // === CASO NORMAL: usar evolución existente ===
+      const evolResult = await retornarQuery(
+        `SELECT id_paciente, id_med, id_cli FROM evoluciones WHERE id_evolucion = ? AND firmada = FALSE`,
+        [id_evolucion]
+      );
+      if (evolResult.data.length === 0) {
+        return res.status(400).json({ success: false, error: 'Evolución no encontrada o ya firmada' });
+      }
+      const { id_paciente: e_pac, id_med: e_med, id_cli: e_cli } = evolResult.data[0];
+      evolId = id_evolucion;
+      id_paciente = e_pac;
+      id_med = e_med;
+      id_cli = e_cli;
+    }
+
+    // 3. Validar tipo de estudio
+    const tipoResult = await retornarQuery(
+      `SELECT id_tipo_estudio FROM tipo_estudio WHERE id_tipo_estudio = ? AND id_cli = ? AND activo = 1`,
+      [id_tipo_estudio, id_cli]
+    );
+    if (tipoResult.data.length === 0) {
+      return res.status(400).json({ success: false, error: 'Tipo de estudio no válido o inactivo' });
+    }
+
+    // 4. Crear orden de estudio
+    const ordenResult = await retornarQuery(
+      `INSERT INTO ordenes_estudios (
+        id_evolucion, id_paciente, id_med, id_cli,
+        id_tipo_estudio, descripcion, motivo, fecha_ejecucion,
+        fecha_hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        evolId,
+        id_paciente,
+        id_med,
+        id_cli,
+        id_tipo_estudio,
+        descripcion.trim(),
+        motivo ? motivo.trim() : null,
+        fecha_ejecucion || null
+      ]
+    );
+
+    return res.json({ success: true, datos: { id_orden: ordenResult.data.insertId, id_evolucion: evolId } });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/evoluciones/:id_evolucion/recetas', authenticateToken, async (req, res) => {
+  const { id_evolucion } = req.params;
+  if (!id_evolucion || isNaN(id_evolucion)) {
+    return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
+  }
+
+  try {
+    const result = await retornarQuery(
+      `SELECT 
+        id_receta,
+        nombre_medicamento,
+        dosis,
+        via_administracion,
+        frecuencia,
+        duracion,
+        indicaciones,
+        fecha_hora,
+        firmada
+       FROM recetas
+       WHERE id_evolucion = ?
+       ORDER BY fecha_hora ASC`,
+      [id_evolucion]
+    );
+
+    return res.json({ success: true, datos: result.data });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/evoluciones/:id_evolucion/tratamientos', authenticateToken, async (req, res) => {
+  const { id_evolucion } = req.params;
+  if (!id_evolucion || isNaN(id_evolucion)) {
+    return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
+  }
+
+  try {
+    const result = await retornarQuery(
+      `SELECT 
+        id_tratamiento,
+        descripcion,
+        tipo_tratamiento,
+        fecha_hora,
+        firmada
+       FROM tratamientos
+       WHERE id_evolucion = ?
+       ORDER BY fecha_hora ASC`,
+      [id_evolucion]
+    );
+
+    return res.json({ success: true, datos: result.data });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/evoluciones/:id_evolucion/ordenes-estudios', authenticateToken, async (req, res) => {
+  const { id_evolucion } = req.params;
+  if (!id_evolucion || isNaN(id_evolucion)) {
+    return res.status(400).json({ success: false, error: 'id_evolucion inválido' });
+  }
+
+  try {
+    const result = await retornarQuery(
+      `SELECT 
+        o.id_orden,
+        o.id_tipo_estudio,
+        t.descripcion AS tipo_estudio_nombre,
+        o.descripcion,
+        o.motivo,
+        o.fecha_ejecucion,
+        o.fecha_hora,
+        o.firmada
+       FROM ordenes_estudios o
+       LEFT JOIN tipo_estudio t ON o.id_tipo_estudio = t.id_tipo_estudio
+       WHERE o.id_evolucion = ?
+       ORDER BY o.fecha_hora ASC`,
+      [id_evolucion]
+    );
+
+    return res.json({ success: true, datos: result.data });
+
   } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ success: false, error: error.message });
