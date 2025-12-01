@@ -553,6 +553,7 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         NULL AS id_med_evolution, 
         c.fecha_creacion as fecha_hora, 
         c.motivo AS titulo, 
+        null as motivo,
         NULL AS estado_paciente, 
         NULL AS firmada ,
         c.id_admidet,
@@ -572,7 +573,8 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         id_consulta,
         id_med AS id_med_evolution,
         fecha_hora,
-        CONCAT('Evolución ', te.nombre) AS titulo,
+        te.nombre AS titulo,
+        e.motivo,
         estado_paciente,
         firmada,
         NULL as id_admidet,
@@ -1002,5 +1004,231 @@ router.get('/evoluciones/:id_evolucion/ordenes-estudios', authenticateToken, asy
     return res.status(500).json({ success: false, error: error.message });
   }
 });
+
+router.patch('/evoluciones/:id_orden/ordenes-estudios', authenticateToken,  async (req,res)=> {
+  const {id_orden} = req.params;    
+  const {id_tipo_estudio, descripcion, motivo, fecha_ejecucion} = req.body;
+    
+  if (!id_orden ) {
+    registrarErrorPeticion(req, "Intento de actualizacion sin  ident");
+    return res.status(400).json({ error: 'Campos requeridos' });    
+  }
+
+  if (fecha_ejecucion) {
+    const fechaNacimientoDate = new Date(fecha_ejecucion);
+    if (isNaN(fechaNacimientoDate.getTime())) {
+      return res.status(400).json({ error: 'La fecha de ejecucion no es válida.' });
+    }
+  }
+ 
+  if (id_tipo_estudio && isNaN(parseInt(id_tipo_estudio))) {
+    return res.status(400).json({ error: 'El ID de tipo de estudio no es válido.' });
+  }
+
+
+  const allowed =  [
+    'id_tipo_estudio', 'descripcion', 'motivo', 'fecha_ejecucion'
+  ];
+
+   let whereConditions = {
+      id_orden : parseInt(id_orden, 10),    
+      firmada: false 
+    };
+
+  let tabla='ordenes_estudios';  
+
+  const update = buildUpdateQuery(tabla, allowed, req.body, whereConditions);
+  if (!update) {
+    registrarErrorPeticion(req, "No hay campos para actualizar");
+      return res.json({
+          success:false,
+          datos:"No hay campos para actualizar"
+        }); 
+      }
+  
+  try {    
+    const result = await retornarQuery(update.query, update.values);
+    return res.json({
+      success: true,
+      datos: result
+    });
+    } catch (error) { 
+      registrarErrorPeticion(req, error);
+      return res.json({
+          success:false,
+          datos:error
+        }); 
+      }
+})
+
+router.patch('/evoluciones/:id_orden/tratamientos', authenticateToken,  async (req,res)=> {
+  const {id_orden} = req.params;    
+  const {tipo_tratamiento, descripcion} = req.body;
+    
+  if (!id_orden ) {
+    registrarErrorPeticion(req, "Intento de actualizacion sin  ident");
+    return res.status(400).json({ error: 'Campos requeridos' });    
+  }
+
+  const allowed =  [
+    'tipo_tratamiento', 'descripcion'
+  ];
+
+   let whereConditions = {
+      id_tratamiento: parseInt(id_orden, 10),    
+      firmada: false 
+    };
+
+  let tabla='tratamientos';  
+
+  const update = buildUpdateQuery(tabla, allowed, req.body, whereConditions);
+  if (!update) {
+    registrarErrorPeticion(req, "No hay campos para actualizar");
+      return res.json({
+          success:false,
+          datos:"No hay campos para actualizar"
+        }); 
+      }
+  
+  try {    
+    const result = await retornarQuery(update.query, update.values);
+    return res.json({
+      success: true,
+      datos: result
+    });
+    } catch (error) { 
+      registrarErrorPeticion(req, error);
+      return res.json({
+          success:false,
+          datos:error
+        }); 
+      }
+})
+
+router.patch('/evoluciones/:id_orden/recetas', authenticateToken,  async (req,res)=> {
+  const {id_orden} = req.params;    
+  const {nombre_medicamento, dosis, via_administracion, frecuencia, duracion, indicaciones} = req.body;
+    
+  if (!id_orden ) {
+    registrarErrorPeticion(req, "Intento de actualizacion sin  ident");
+    return res.status(400).json({ error: 'Campos requeridos' });    
+  }
+
+  const allowed =  [
+    'nombre_medicamento', 'dosis', 'via_administracion', 'frecuencia', 'duracion', 'indicaciones'
+  ];
+
+   let whereConditions = {
+      id_receta: parseInt(id_orden, 10),    
+      firmada: false 
+    };
+
+  let tabla='recetas';  
+
+  const update = buildUpdateQuery(tabla, allowed, req.body, whereConditions);
+  if (!update) {
+    registrarErrorPeticion(req, "No hay campos para actualizar");
+      return res.json({
+          success:false,
+          datos:"No hay campos para actualizar"
+        }); 
+      }
+  
+  try {    
+    const result = await retornarQuery(update.query, update.values);
+    return res.json({
+      success: true,
+      datos: result
+    });
+    } catch (error) { 
+      registrarErrorPeticion(req, error);
+      return res.json({
+          success:false,
+          datos:error
+        }); 
+      }
+})
+
+router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken,  async (req,res)=> {
+  const {id_orden, tipo} = req.params;    
+      
+  if (!id_orden ) {
+    registrarErrorPeticion(req, "Intento de actualizacion sin ident");
+    return res.status(400).json({ error: 'Campos requeridos' });    
+  }
+  if(tipo!="recetas" || tipo!="tratamientos" || tipo!="ordenes_estudios"){
+    return res.status(400).json({ error: 'Tipo de documento invalido' });    
+  }
+  let id_usuario_firma = req.logData.id_usuario; 
+  if (!id_usuario_firma) {
+    return res.status(401).json({ success: false, error: 'Usuario no autenticado o sin ID' });
+  }
+
+  const checkQuery = `
+      SELECT 
+        firmada, 
+        id_med 
+      FROM ${tipo} 
+      WHERE id_evolucion = ?
+    `;
+    const checkResult = await retornarQuery(checkQuery, [id_evolucion]);
+
+    if (checkResult.length === 0) {
+      return res.status(404).json({ success: false, error: 'Documento no encontrado' });
+    }
+
+    const evol = checkResult.data[0];
+    if (evol.firmada) {
+      return res.status(400).json({ success: false, error: 'Documento ya firmado' });
+    }
+
+    try{
+      let queryUsuario = "SELECT id_especialista FROM perfil_usuario_basico WHERE id_usuario=?"
+      let idMedUsu = await retornarQuery(queryUsuario,[id_usuario_firma])
+      id_usuario_firma=idMedUsu.data[0].id_especialista
+    }catch{
+      return res.status(403).json({ success: false, error: 'Usuario no es especialista' });
+    }
+   
+    if (evol.id_med !== id_usuario_firma) {
+      return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar este documento', firmas:{evol:evol.id_med, id_usuario_firma} });
+    }
+    let identificador =''
+    switch (tipo) {
+      case "recetas":
+        identificador = 'id_receta';
+        break;
+      case "tratamientos":
+        identificador = 'id_tratamiento';
+        break;
+      case "ordenes_estudios":
+        identificador = 'id_orden';
+        break;    
+      default:
+        return res.status(400).json({ error: 'Tipo de documento invalido' });   
+    }
+    
+  let query_firma = 
+  `UPDATE ${tipo} 
+  SET firmada = TRUE, 
+    fecha_firma = NOW(), 
+    id_usuario_firma = ? 
+  WHERE ${identificador} = ?`;
+  const params = [id_usuario_firma, id_orden];
+
+  try {
+    const result = await retornarQuery(query_firma, params);
+    return res.json({
+      success: true,
+      datos: result
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
+})
 
 module.exports = router;
