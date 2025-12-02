@@ -4,14 +4,14 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { retornar_query, retornarQuery } = require('./auth');
-const  { authenticateToken, registrarInicioPeticion, registrarErrorPeticion, registrarFinPeticion} = require('./middlewares/autenticarToken');
+const { authenticateToken, registrarInicioPeticion, registrarErrorPeticion, registrarFinPeticion } = require('./middlewares/autenticarToken');
 const { generateToken, authenticateLocal } = require('./auth');
 const routes = require('./routes');
 const { validatePatientCed, crearPaciente, actualizarPaciente } = require('./schemas/pacientes');
 const { validateLocalidad } = require('./schemas/localidades');
 const { validateHonorariosConfig, actualizarHonorariosConfig } = require('./schemas/honorarios');
 const { registrarCita } = require('./schemas/agenda');
-const { registrarAdmision, registrarDetalleAdmision,actualizarAdmision } = require('./schemas/admision');
+const { registrarAdmision, registrarDetalleAdmision, actualizarAdmision } = require('./schemas/admision');
 const { registrarOdontolProcedure, actualizarOdontolProcedure } = require('./schemas/odontol');
 const { generarUUID } = require('./funciones/funciones_comunes_be');
 const contenedor_query = require('./queries');
@@ -27,7 +27,7 @@ const https = require('https');
 const { query } = require('./db');
 const upload = require('./upload');
 const sharp = require('sharp');
-const fs = require('fs'); 
+const fs = require('fs');
 const multer = require('multer');
 const admin = require('firebase-admin');
 const serviceAccount = require('./siacmedica-firebase-service-account.json');
@@ -52,7 +52,7 @@ admin.initializeApp({
 });
 
 
-async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, data = {tipo: "nueva_cita"}, large_icon="https://siac.empresas.historiaclinica.org/images/splash-icon.png") {
+async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, data = { tipo: "nueva_cita" }, large_icon = "https://siac.empresas.historiaclinica.org/images/splash-icon.png") {
 
   if (!oneSignalUserId || typeof oneSignalUserId !== 'string') {
     console.error('❌ OneSignal userId inválido:', oneSignalUserId);
@@ -60,17 +60,19 @@ async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, dat
   }
 
   const payload = {
-    app_id: '131421fb-71e5-462a-a575-c3f2be35e848',
-  
-  include_aliases: { onesignal_id: [
-    `${oneSignalUserId}`
-  ]},target_channel: "push",
+    app_id: process.env.ONESIGNALAPPID,
+
+    include_aliases: {
+      onesignal_id: [
+        `${oneSignalUserId}`
+      ]
+    }, target_channel: "push",
 
     headings: { en: titulo },
     contents: { en: mensaje },
     data, large_icon
   };
-  const authHeader = `Basic ${process.env.ONESIGNAL_REST_API_KEY}`;
+  const authHeader = `Basic ${process.env.ONESIGNALAUTH}`;
 
   try {
     const response = await fetch('https://onesignal.com/api/v1/notifications ', {
@@ -86,22 +88,33 @@ async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, dat
 
     if (!response.ok) {
       console.warn('⚠️ Error al enviar notificación:', data);
-      return { success: false, error: data.errors?.join(', ') || 'Error en API de OneSignal' };
+      return {
+        success: false,
+        error: data.errors?.join(', ') || 'Error en API de OneSignal',
+      };
     }
 
     return { success: true, data };
 
   } catch (error) {
-    
     return { success: false, error: error.message };
   }
 }
 
 //app.set('trust proxy', true);
-app.use(cors());
+app.use(cors({
+  origin: ['https://siac.empresas.historiaclinica.org',
+    'https://siacmedica.com/',
+    'https://facturacion.siac.historiaclinica.org/',
+    'https://facturacion.siac.historiaclinica.org',
+    'http://server:8080',
+    'http://192.168.100.201:5501',
+    'http://127.0.0.1:5501',
+  ],
+}));
 
 app.use(express.json());
-app.use(express.urlencoded({extended:false}));
+app.use(express.urlencoded({ extended: false }));
 
 
 
@@ -131,7 +144,7 @@ const crearCitaLimiter = rateLimit({
 
 async function obtenerTasasBCV() {
   const url = 'https://www.bcv.org.ve/';
-  const agent = new https.Agent({  
+  const agent = new https.Agent({
     rejectUnauthorized: false
   });
   try {
@@ -148,10 +161,10 @@ async function obtenerTasasBCV() {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
     });
-    
+
     // Cargar el HTML en Cheerio
     const $ = cheerio.load(response.data);
-    
+
     const extraerTasa = (idDiv) => {
       const tasaTexto = $(`#${idDiv} .centrado strong`).text().trim();
       return tasaTexto.replace(',', '.').replace(/\s/g, '');
@@ -159,7 +172,7 @@ async function obtenerTasasBCV() {
 
     const fechaActualizacion = $('.date-display-single').attr('content');
     const fechaFormateada = moment(fechaActualizacion).format('DD/MM/YYYY HH:mm:ss');
- 
+
     const tasas = {
       USD: extraerTasa('dolar'),
       EUR: extraerTasa('euro'),
@@ -167,7 +180,7 @@ async function obtenerTasasBCV() {
       TRY: extraerTasa('lira'),
       RUB: extraerTasa('rublo')
     };
- 
+
     const resultado = {
       fecha_actualizacion: fechaFormateada,
       fuente: 'BCV',
@@ -179,14 +192,14 @@ async function obtenerTasasBCV() {
         TRY: { moneda: 'Lira Turca', simbolo: 'TRY' },
         RUB: { moneda: 'Rublo Ruso', simbolo: 'RUB' }
       }
-    }; 
-    
+    };
+
     return resultado;
-    
-  } catch (error) {     
-    try {      
+
+  } catch (error) {
+    try {
       return await obtenerTasaBanesco();
-    } catch (errorBanesco) {      
+    } catch (errorBanesco) {
       return {
         error: true,
         mensaje: 'No se pudieron obtener tasas de ninguna fuente',
@@ -198,7 +211,7 @@ async function obtenerTasasBCV() {
 
 async function obtenerTasaBanesco() {
   const url = 'https://www.banesco.com/informacion-de-interes/sistema-mercado-cambiario/';
-  
+
   try {
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -206,9 +219,9 @@ async function obtenerTasaBanesco() {
 
     const response = await axios.get(url, { headers });
     const $ = cheerio.load(response.data);
-    
+
     const tablas = $('table.formatted-table');
-    
+
     if (tablas.length === 0) {
       throw new Error('No se encontró la tabla de tasas en Banesco');
     }
@@ -218,11 +231,11 @@ async function obtenerTasaBanesco() {
 
     // Procesar cada tabla
     tablas.each((tablaIndex, tabla) => {
-      const tituloTabla = $(tabla).find('thead td').text().trim();      
+      const tituloTabla = $(tabla).find('thead td').text().trim();
 
       $(tabla).find('tbody tr').each((filaIndex, row) => {
         const celdas = $(row).find('td');
-        
+
         if (celdas.length >= 3) {
           const divisa = $(celdas[0]).text().trim();
           const compra = $(celdas[1]).text().trim();
@@ -249,7 +262,7 @@ async function obtenerTasaBanesco() {
           if (celdas.length >= 3) {
             const divisa = $(celdas[0]).text().trim();
             const venta = $(celdas[2]).text().trim();
-            
+
             if (divisa === 'USD' && !tasaUSDVenta) {
               tasaUSDVenta = venta.replace(',', '.').replace(/\s/g, '').replace(/[^\d.]/g, '');
             } else if (divisa === 'EUR' && !tasaEURVenta) {
@@ -261,7 +274,7 @@ async function obtenerTasaBanesco() {
     }
 
     const fechaActualizacion = moment().format('DD/MM/YYYY HH:mm:ss');
-    
+
     const resultado = {
       fecha_actualizacion: fechaActualizacion,
       fuente: 'Banesco',
@@ -273,15 +286,15 @@ async function obtenerTasaBanesco() {
         RUB: 'No disponible en Banesco'
       },
       detalles: {
-        USD: { 
-          moneda: 'Dólar Estadounidense', 
-          simbolo: 'USD', 
+        USD: {
+          moneda: 'Dólar Estadounidense',
+          simbolo: 'USD',
           tipo: 'Venta',
           categoria: 'Menudeo'
         },
-        EUR: { 
-          moneda: 'Euro', 
-          simbolo: 'EUR', 
+        EUR: {
+          moneda: 'Euro',
+          simbolo: 'EUR',
           tipo: 'Venta',
           categoria: 'Menudeo'
         },
@@ -291,11 +304,11 @@ async function obtenerTasaBanesco() {
       },
       nota: 'Tasas de venta - Menudeo obtenidas de Banesco'
     };
-   
+
     return resultado;
-    
+
   } catch (error) {
-    
+
     return {
       error: true,
       mensaje: 'Error al obtener datos de Banesco',
@@ -340,11 +353,11 @@ const pacientesUpdateApiLimiter = rateLimit({
 });
 app.post('/crear-paciente', pacientesApiLimiter, async (req, res) => {
   const result = await crearPaciente(req.body);
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
   const filtros = { ...result.data }
-  const uuid = await generarUUID(); 
+  const uuid = await generarUUID();
   let query_pac = `INSERT INTO pacientes
                       (tipo_cedula,
                       cedula,
@@ -354,37 +367,39 @@ app.post('/crear-paciente', pacientesApiLimiter, async (req, res) => {
                       sexo,
                       correo,
                       fecha_nacimiento, direccion, uuid_paciente)                     
-                  VALUES (?,?,?,?,?,?,?,?,?, '${uuid}')`;
-try {
-  
-  let paciente = await retornar_query(query_pac, [filtros.tipo_cedula, filtros.cedula, filtros.apellidos, filtros.nombres, filtros.telef1, filtros.sexo, filtros.correo, filtros.fecha_nacimiento, filtros.direccion]);
-  //console.log(paciente)
-  if(!paciente.insertId){
-    if(paciente.code=='ER_DUP_ENTRY'){
-      return res.json({ success:false,
-                        error: "La cedula y el tipo ya existe"
-                      });
+                  VALUES (?,?,?,?,?,?,?,?,?,?)`;
+  try {
+
+    let paciente = await retornar_query(query_pac, [filtros.tipo_cedula, filtros.cedula, filtros.apellidos, filtros.nombres, filtros.telef1, filtros.sexo, filtros.correo, filtros.fecha_nacimiento, filtros.direccion, uuid]);
+    //console.log(paciente)
+    if (!paciente.insertId) {
+      if (paciente.code == 'ER_DUP_ENTRY') {
+        return res.json({
+          success: false,
+          error: "La cedula y el tipo ya existe"
+        });
+      }
+
     }
-    
+    res.json({
+      id_paciente: paciente.insertId,
+      uuid_paciente: uuid
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: error });
+    return
   }
-  res.json({ id_paciente: paciente.insertId,
-            uuid_paciente: uuid
-   });
-  
-} catch (error) {  
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: error });
-  return
-}
 });
 app.post('/api/crear-cita', crearCitaLimiter, async (req, res) => {
   const result = await registrarCita(req.body);
-  
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
   const filtros = { ...result.data }
-  
+
   let query_pac = `INSERT INTO calendarios
                       (tipo_consulta,
                       color,
@@ -398,11 +413,11 @@ app.post('/api/crear-cita', crearCitaLimiter, async (req, res) => {
                       start,
                       end)                     
                   VALUES ('P','#198754','Pendiente','#ffc107',(SELECT id_usuario FROM perfil_usuario_basico WHERE apellidos = ?),?,?,?,?,?,?)`;
-  try {  
-    let cita = await retornar_query(query_pac, [filtros.id_cli, filtros.title, 
-        filtros.nota, filtros.id_paciente, filtros.id_med, filtros.fecha_inicio, filtros.fecha_fin]);
-    res.json({ id_cita: cita.insertId });    
-  } catch (error) {     
+  try {
+    let cita = await retornar_query(query_pac, [filtros.id_cli, filtros.title,
+    filtros.nota, filtros.id_paciente, filtros.id_med, filtros.fecha_inicio, filtros.fecha_fin]);
+    res.json({ id_cita: cita.insertId });
+  } catch (error) {
     registrarErrorPeticion(req, error);
     res.status(500).json({ error: error });
     return
@@ -411,11 +426,11 @@ app.post('/api/crear-cita', crearCitaLimiter, async (req, res) => {
 
 app.patch('/actualizar-paciente', pacientesUpdateApiLimiter, async (req, res) => {
   const result = await actualizarPaciente(req.query);
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
   const filtros = { ...result.data }
-  var valor_actualizable =''
+  var valor_actualizable = ''
   switch (filtros.campo) {
     case 'correo':
       valor_actualizable = filtros.correo
@@ -423,32 +438,32 @@ app.patch('/actualizar-paciente', pacientesUpdateApiLimiter, async (req, res) =>
     case 'telef1':
       valor_actualizable = filtros.telef1
       break;
-    
+
     default:
       break;
   }
 
 
-  let query_pac = `UPDATE pacientes SET ${filtros.campo}='${valor_actualizable}'
+  let query_pac = `UPDATE pacientes SET ${filtros.campo}=?
                   WHERE id_paciente=?`;
-try {
-  
-  let paciente = await retornar_query(query_pac, [filtros.id_paciente]);
+  try {
 
-  res.json({ cantidad_rows: paciente.affectedRows });
-  
-} catch (error) {    
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: 'No existe paciente' });
-  return
-}
+    let paciente = await retornar_query(query_pac, [valor_actualizable, filtros.id_paciente]);
+
+    res.json({ cantidad_rows: paciente.affectedRows });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: 'No existe paciente' });
+    return
+  }
 });
 
 app.get('/api/doctors', async (req, res) => {
-  const { clinic_id,medic_id } = req.query; 
+  const { clinic_id, medic_id } = req.query;
   let id = '';
-  let logo ='';
-  let filtro_clinica = (isNaN(clinic_id)) ?  `pue.apellidos= ?  ` : `pue.id_usuario_empresa =? `
+  let logo = '';
+  let filtro_clinica = (isNaN(clinic_id)) ? `pue.apellidos= ?  ` : `pue.id_usuario_empresa =? `
 
   let nombre_clinica = clinic_id.toLocaleUpperCase();
   let query_ag = `SELECT pue.id_usuario_empresa,
@@ -462,13 +477,13 @@ app.get('/api/doctors', async (req, res) => {
     id = ids.map(item => item.id_usuario_empresa);
     logo = ids[0].logo_empresa;
   } catch (error) {
-registrarErrorPeticion(req, error)  
+    registrarErrorPeticion(req, error)
     res.status(500).json({ error: 'Clinica Invalida' });
     return
   }
-  let medico = (medic_id==null || medic_id=='' || isNaN(medic_id))?'':`m.id_medico = ${medic_id} AND `
+  let medico = (medic_id == null || medic_id == '' || isNaN(medic_id)) ? '' : `m.id_medico = ${medic_id} AND `
 
-  
+
 
   try {
     const query = `
@@ -522,18 +537,18 @@ registrarErrorPeticion(req, error)
           mc.id_cli = ?
       ORDER BY e.descripcion;`;
     const doctors = await retornar_query(query, [id, id]);
-    
-    if(!isNaN(medic_id)){
+
+    if (!isNaN(medic_id)) {
 
       const query_horarios = `SELECT (CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 0 THEN 'Dom' WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 1 THEN 'Lun' WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 2 THEN 'Mar' WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 3 THEN 'Mie' WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 4 THEN 'Jue' WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 5 THEN 'Vie' WHEN JSON_UNQUOTE(JSON_EXTRACT(dia_semana, '$[0]')) = 6 THEN 'Sab' ELSE '' END ) AS dias_semana, max_items, hora_inicio, hora_fin FROM config_cal WHERE 
               activo = 1
               AND id_cli = ?
-              and id_externa=${medic_id}`;
-      const horarios = await retornar_query(query_horarios, [id]);
-      doctors.push({horarios:horarios})
+              and id_externa=?`;
+      const horarios = await retornar_query(query_horarios, [id, medic_id]);
+      doctors.push({ horarios: horarios })
     }
-    
-    doctors.push({logo: logo.replace("..","https://siac.empresas.historiaclinica.org")})
+
+    doctors.push({ logo: logo.replace("..", "https://siac.empresas.historiaclinica.org") })
     res.json(doctors);
 
   } catch (error) {
@@ -543,19 +558,19 @@ registrarErrorPeticion(req, error)
 });
 
 app.get('/api/doctors/citas', async (req, res) => {
-  const { clinic_id,medic_id, fecha } = req.query; // Obtener la ID de la clínica desde los parámetros de consulta
+  const { clinic_id, medic_id, fecha } = req.query; // Obtener la ID de la clínica desde los parámetros de consulta
   let id = '';
-  let logo ='';
+  let logo = '';
   let nombre_clinica = clinic_id.toLocaleUpperCase();
   let query_ag = "";
-  if(isNaN(clinic_id)){
-     query_ag = `SELECT pue.id_usuario_empresa,
+  if (isNaN(clinic_id)) {
+    query_ag = `SELECT pue.id_usuario_empresa,
                       pue.logo_empresa
                   FROM 
                       perfil_usuario_empresa  pue
                   WHERE 
                     pue.apellidos= ? `;
-  }else{
+  } else {
     query_ag = `SELECT pue.id_usuario_empresa,
                       pue.logo_empresa
                   FROM 
@@ -564,22 +579,22 @@ app.get('/api/doctors/citas', async (req, res) => {
                     pue.id_usuario_empresa= ?  
                   LIMIT 1;`;
   }
-  
+
 
   try {
     let ids = await retornar_query(query_ag, [nombre_clinica]);
-    if(isNaN(clinic_id)){
+    if (isNaN(clinic_id)) {
       id = ids.map(item => item.id_usuario);
-    }else{
-      id = clinic_id 
-    }    
+    } else {
+      id = clinic_id
+    }
     logo = ids[0].logo_empresa;
   } catch (error) {
-registrarErrorPeticion(req, error)  
+    registrarErrorPeticion(req, error)
     res.status(500).json({ error: 'Clinica Invalida' });
     return
   }
-  if (isNaN(medic_id)){
+  if (isNaN(medic_id)) {
     return res.status(400).json({ error: 'Se requiere el parámetro medic_id' });
   }
   if (!clinic_id) {
@@ -589,7 +604,7 @@ registrarErrorPeticion(req, error)
   if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return res.status(400).json({ error: 'Se requiere el parámetro fecha' });
   }
-   try {
+  try {
     const query = `SELECT id_calendario, start, end 
                    FROM calendarios 
                    WHERE id_cli = ? 
@@ -597,10 +612,10 @@ registrarErrorPeticion(req, error)
                      AND DATE(start) = ?;`;
 
     const filas = await retornar_query(query, [id, medic_id, fecha]);
-    if(filas.error){
+    if (filas.error) {
       return res.status(400).json({ success: true, error: 'No hay citas para la fecha' });
     }
-    
+
     const citasCorregidas = filas.map(fila => {
       const start = new Date(fila.start);
       const end = new Date(fila.end);
@@ -613,47 +628,47 @@ registrarErrorPeticion(req, error)
       return {
         start: start.toISOString().replace(/\.\d{3}Z$/, 'Z'),
         end: end.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        idCalendario:idCalendario
+        idCalendario: idCalendario
       };
     });
 
     res.json(citasCorregidas);
 
-  } catch (error) {    
+  } catch (error) {
     registrarErrorPeticion(req, error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
 app.get('/api/localidades', async (req, res) => {
-  const { tipo,tipo_id } = req.query; // Obtener la ID de la clínica desde los parámetros de consulta
+  const { tipo, tipo_id } = req.query; // Obtener la ID de la clínica desde los parámetros de consulta
   const result = await validateLocalidad(req.query);
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
   const filtros = { ...result.data }
-  let query =''
+  let query = ''
   switch (filtros.tipo) {
     case 'mun':
-        query = `SELECT
+      query = `SELECT
                   id_municipio,
                   municipio
                 FROM
                   municipios
                 WHERE
-                  id_estado=?`;      
+                  id_estado=?`;
       break;
     case 'par':
-          query = `SELECT
+      query = `SELECT
             id_parroquia,
             parroquia
           FROM
             parroquias
           WHERE
             id_municipio=?`;
-      break 
-      case 'zon':
-        query = `SELECT
+      break
+    case 'zon':
+      query = `SELECT
           id_zona,
           zona, 
           activo
@@ -661,25 +676,25 @@ app.get('/api/localidades', async (req, res) => {
           zonas
         WHERE
           id_parroquia=? OR id_parroquia=0`;
-    break        
+      break
     default:
       query = `SELECT
               id_estado,
               estado
             FROM
-              estados`;      
+              estados`;
       break;
   }
 
-try {
-  
-  let localidad = await retornar_query(query, [filtros.tipo_id]);
-  res.json(localidad);
-} catch (error) {
-registrarErrorPeticion(req, error)  
-  res.status(500).json({ error: 'No existe paciente' });
-  return
-}
+  try {
+
+    let localidad = await retornar_query(query, [filtros.tipo_id]);
+    res.json(localidad);
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.status(500).json({ error: 'No existe paciente' });
+    return
+  }
 });
 
 app.use('/images', express.static(path.join(__dirname, '../images')));
@@ -691,15 +706,15 @@ app.use('/api/', routes);
 app.post('/api/login', loginRateMax, async (req, res) => {
   try {
     const { usuario, password, ip_internet, ip_local } = req.body;
-    if(!usuario || !password){
+    if (!usuario || !password) {
       throw new Error('Usuario y contraseña son requeridos');
     }
     const user = await authenticateLocal(usuario, password, ip_internet, ip_local);
-    
+
     const requestId = Date.now() + Math.random();
 
-    const requestQuery = Object.keys(req.query).length > 0 
-      ? JSON.stringify(req.query) 
+    const requestQuery = Object.keys(req.query).length > 0
+      ? JSON.stringify(req.query)
       : null;
 
     const { password: _, ...bodySinPassword } = req.body;
@@ -712,11 +727,11 @@ app.post('/api/login', loginRateMax, async (req, res) => {
       metodo: req.method,
       ruta: req.path,
       user_agent: req.headers['user-agent'],
-      request_body: requestBodySafe, 
+      request_body: requestBodySafe,
       requestQuery: requestQuery || '{}'
     };
 
-    registrarInicioPeticion(req.logData); 
+    registrarInicioPeticion(req.logData);
 
     const token = generateToken(user);
     res.json({ token });
@@ -727,18 +742,18 @@ app.post('/api/login', loginRateMax, async (req, res) => {
   }
 });
 //loginMasterLimiter
-app.post('/api/login-master/:id',   authenticateToken,async (req, res) => {
-  const {clinica} = req.body;
-  const {id} = req.params;
+app.post('/api/login-master/:id', authenticateToken, async (req, res) => {
+  const { clinica } = req.body;
+  const { id } = req.params;
   try {
     let queryVerifUser = `
       SELECT id_grupo_usuario FROM grupos_usuarios_det WHERE id_usuario = ?;
     `;
     let verifUser = await retornar_query(queryVerifUser, [id]);
-    if(verifUser.error){
+    if (verifUser.error) {
       return res.status(401).json({ error: 'Usuario no valido' });
     }
-    if(verifUser[0].id_grupo_usuario != 1){
+    if (verifUser[0].id_grupo_usuario != 1) {
       return res.status(401).json({ error: 'Usuario no es master' });
     }
     let queryVerifEmpre = `
@@ -746,22 +761,23 @@ app.post('/api/login-master/:id',   authenticateToken,async (req, res) => {
     `;
 
     let verifEmpre = await retornar_query(queryVerifEmpre, [clinica]);
-    if(verifEmpre.error){
+    if (verifEmpre.error) {
       return res.status(406).json({ error: 'Empresa no valida' });
     }
-    if(isNaN(verifEmpre[0].id_usuario_empresa)){
+    if (isNaN(verifEmpre[0].id_usuario_empresa)) {
       return res.status(406).json({ error: 'Empresa no conseguida' });
     }
     let queryActualizarUsuario = `
       UPDATE perfil_usuario_basico SET id_usuario_empresa = ? WHERE id_usuario = ?;
     `;
     let actualizarUsuario = await retornar_query(queryActualizarUsuario, [verifEmpre[0].id_usuario_empresa, id]);
-           
-    return res.json({success:true,
-                     ususariosActualizados:actualizarUsuario.affectedRows,
-                     empresa:verifEmpre[0].id_usuario_empresa
-                    });
-  }catch(error){
+
+    return res.json({
+      success: true,
+      ususariosActualizados: actualizarUsuario.affectedRows,
+      empresa: verifEmpre[0].id_usuario_empresa
+    });
+  } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ error: error.message });
   }
@@ -797,12 +813,12 @@ app.use('/decodifica', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     res.json(decoded);
   } catch (error) {
-    
+
     if (error.name === 'TokenExpiredError') {
       registrarErrorPeticion(req, error.name)
-      return res.status(401).json({ error: 'El token ha expirado', redirectTo: '/login' });      
+      return res.status(401).json({ error: 'El token ha expirado', redirectTo: '/login' });
     } else {
-      
+
       return res.status(401).json({ error: 'Token malformado o inválido', redirectTo: '/login' });
     }
   }
@@ -811,44 +827,44 @@ app.get('/validate-token', authenticateToken, (req, res) => {
   res.json({ message: 'Token válido', user: req.user });
 });
 app.post('/cargar_query', async (req, res) => {
-  res.header('Access-Control-Allow-Origin','*')
-  const { id_query, filtros, id_contenedor=0 } = req.body;
-  
+  res.header('Access-Control-Allow-Origin', '*')
+  const { id_query, filtros, id_contenedor = 0 } = req.body;
+
   if (id_contenedor < 0 || id_contenedor >= contenedor_query.length) {
     return res.status(400).json({ error: 'Contenedor invalido' });
   }
 
   let queries = contenedor_query[id_contenedor];
-  
+
   if (id_query < 0 || id_query >= contenedor_query[id_contenedor].length) {
     return res.status(400).json({ error: 'Invalid id_query ' });
   }
 
   try {
 
-    const result = await retornar_query(queries[id_query], filtros); 
+    const result = await retornar_query(queries[id_query], filtros);
 
     res.json(result);
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
-    res.status(500).json({ error: 'Internal server error' +error });
+    registrarErrorPeticion(req, error)
+
+    res.status(500).json({ error: 'Internal server error' + error });
   }
 });
 
 app.get('/api/pacientes', async (req, res) => {
 
-  const {id_paciente} = req.query
+  const { id_paciente } = req.query
 
   // Validar que id_paciente exista y sea un número
   if (!id_paciente || isNaN(id_paciente)) {
     const result = await validatePatientCed(req.query);
 
-    if (result.error ){
-      return res.status(422).json({error: JSON.parse(result.error.message)})
+    if (result.error) {
+      return res.status(422).json({ error: JSON.parse(result.error.message) })
     }
     const filtros = { ...result.data }
-    
+
     let query_pac = `SELECT id_paciente,
                         apellidos, 
                         nombres,
@@ -864,14 +880,14 @@ app.get('/api/pacientes', async (req, res) => {
       id = paciente.map(item => item.id_paciente);
       return res.json(paciente);
     } catch (error) {
-      
+
       res.status(500).json({ error: 'No existe paciente' });
       return
-    } 
+    }
   }
   const filtros = { id_paciente }
-    
-    let query_pac = `SELECT 
+
+  let query_pac = `SELECT 
                         tipo_cedula,
                         cedula,
                         apellidos, 
@@ -883,21 +899,21 @@ app.get('/api/pacientes', async (req, res) => {
                         direccion
                     FROM pacientes 
                     WHERE id_paciente = ?`;
-    try {
-      let paciente = await retornar_query(query_pac, [id_paciente]);      
-      return res.json(paciente);
-    } catch (error) {
-registrarErrorPeticion(req, error)  
-      res.status(500).json({ error: 'No existe paciente' });
-      return
-    } 
+  try {
+    let paciente = await retornar_query(query_pac, [id_paciente]);
+    return res.json(paciente);
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.status(500).json({ error: 'No existe paciente' });
+    return
+  }
 
-  
-  
+
+
 });
 
 app.get('/api/tipo_admision', async (req, res) => {
-  const { tipo,clinic_id } = req.query;
+  const { tipo, clinic_id } = req.query;
   if (!clinic_id) {
     return res.status(400).json({ error: 'Se requiere el parámetro clinic_id' });
   }
@@ -919,13 +935,13 @@ app.get('/api/tipo_admision', async (req, res) => {
     case 'sub':
       ident = 'id_subempresa';
       tipo_str = 'subempresas'
-      break;  
+      break;
     default:
       res.status(400).json({ error: 'tipo incorrecto' });
       break;
   }
-  
-  let subquery = (isNaN(clinic_id)) ?  `(SELECT id_usuario_empresa FROM perfil_usuario_basico WHERE apellidos = '${clinic_id}')` : clinic_id
+
+  let subquery = (isNaN(clinic_id)) ? `(SELECT id_usuario_empresa FROM perfil_usuario_basico WHERE apellidos = '${clinic_id}')` : clinic_id
 
   let query = `SELECT ${ident},
                       descripcion, 
@@ -933,28 +949,28 @@ app.get('/api/tipo_admision', async (req, res) => {
                   FROM ${tipo_str} 
                   WHERE activo=1 and id_cli = ${subquery}
                   ORDER BY descripcion`;
-                  
+
   try {
     let listado = await retornar_query(query, [clinic_id]);
-    
+
     res.json(listado);
   } catch (error) {
-registrarErrorPeticion(req, error)  
+    registrarErrorPeticion(req, error)
     res.status(500).json({ error: 'No existe paciente' });
     return
-  } 
+  }
 });
 
 app.post('/api/crear-admision', authenticateToken, async (req, res) => {
-  
+
   const result = await registrarAdmision(req.body);
-  
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
 
   const filtros = { ...result.data }
-  
+
   let query = `INSERT INTO admisiones
                     (id_paciente,
                     id_seguro,
@@ -980,51 +996,51 @@ app.post('/api/crear-admision', authenticateToken, async (req, res) => {
                     id_status_cierre, 
                     control, id_preadmision, id_canal_atraccion)                     
                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-try {
-  let admision = await retornar_query(query, 
-    [
-      filtros.id_paciente,
-      filtros.id_seguro,
-      filtros.id_empresa,
-      filtros.id_tipo_interno,
-      filtros.tipo_consulta,
-      filtros.id_estado,
-      filtros.id_municipio,
-      filtros.id_parroquia,
-      filtros.id_zona,
-      filtros.edad,
-      filtros.fecha_admision,
-      filtros.fechafactura,
-      filtros.fecha_cierre,
-      filtros.tasa,
-      filtros.id_usuario_cierre,
-      filtros.id_usuario,
-      filtros.id_cli,
-      filtros.id_representante,
-      filtros.factura,
-      filtros.motivo_cierre,
-      filtros.id_subempresa,
-      filtros.id_status_cierre,
-      filtros.control,
-      filtros.id_preadmision,
-      filtros.id_canal_atraccion||0,
-    ]);
-  res.json({ id_admision: admision.insertId }); 
-  
-} catch (error) {
-registrarErrorPeticion(req, error)  
-  res.status(500).json({ error: error });
-  return
-}
+  try {
+    let admision = await retornar_query(query,
+      [
+        filtros.id_paciente,
+        filtros.id_seguro,
+        filtros.id_empresa,
+        filtros.id_tipo_interno,
+        filtros.tipo_consulta,
+        filtros.id_estado,
+        filtros.id_municipio,
+        filtros.id_parroquia,
+        filtros.id_zona,
+        filtros.edad,
+        filtros.fecha_admision,
+        filtros.fechafactura,
+        filtros.fecha_cierre,
+        filtros.tasa,
+        filtros.id_usuario_cierre,
+        filtros.id_usuario,
+        filtros.id_cli,
+        filtros.id_representante,
+        filtros.factura,
+        filtros.motivo_cierre,
+        filtros.id_subempresa,
+        filtros.id_status_cierre,
+        filtros.control,
+        filtros.id_preadmision,
+        filtros.id_canal_atraccion || 0,
+      ]);
+    res.json({ id_admision: admision.insertId });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.status(500).json({ error: error });
+    return
+  }
 });
 
-app.post('/api/crear-admision-detalle',  authenticateToken, async (req, res) => {  
+app.post('/api/crear-admision-detalle', authenticateToken, async (req, res) => {
   const result = await registrarDetalleAdmision(req.body);
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
 
-  const filtros = { ...result.data }  
+  const filtros = { ...result.data }
   let query = `INSERT INTO admisiones_det
                     (id_admision,
                     id_consultorio,
@@ -1040,9 +1056,9 @@ app.post('/api/crear-admision-detalle',  authenticateToken, async (req, res) => 
                     cambio,
                     id_usuario)                     
                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-try {
-  let admision_det = await retornar_query(query, 
-    [
+  try {
+    let admision_det = await retornar_query(query,
+      [
         filtros.id_admision,
         filtros.id_consultorio,
         filtros.id_medico,
@@ -1056,63 +1072,63 @@ try {
         filtros.nota,
         filtros.cambio,
         filtros.id_usuario
-    ]);
-  res.json({ id_admidet: admision_det.insertId });
-  
-} catch (error) {
-registrarErrorPeticion(req, error)  
-  
-  res.status(500).json({ error: error });
-  return
-}
+      ]);
+    res.json({ id_admidet: admision_det.insertId });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+
+    res.status(500).json({ error: error });
+    return
+  }
 });
 
-app.get('/api/validar-cita', async (req, res) => {  
-  const { id,id2 } = req.query; // Obtener la ID de la clínica desde los parámetros de consulta
+app.get('/api/validar-cita', async (req, res) => {
+  const { id, id2 } = req.query; // Obtener la ID de la clínica desde los parámetros de consulta
 
-  if(isNaN(id)||isNaN(id2)){
+  if (isNaN(id) || isNaN(id2)) {
     res.json({ error: 'Datos de cita incorrectos' });
     return
   }
 
   let query_ag = `UPDATE calendarios SET status_ag='Esperando' WHERE id_calendario=? AND id_paciente=? AND status_ag='Pendiente';`;
-  
+
   try {
-    let ids = await retornar_query(query_ag, [id,id2]);    
-    if(ids.affectedRows==1){
+    let ids = await retornar_query(query_ag, [id, id2]);
+    if (ids.affectedRows == 1) {
       res.json({ status: 'ok' });
-    }else{
+    } else {
       query_ag = "SELECT status_ag, start FROM calendarios WHERE id_calendario=? and activo =1"
       ids = await retornar_query(query_ag, [id]);
 
-      if(ids.error){
-        res.json( { error:"Esta cita ya no existe o no fue validada a tiempo (mismo dia)" } );  
+      if (ids.error) {
+        res.json({ error: "Esta cita ya no existe o no fue validada a tiempo (mismo dia)" });
         return
       }
 
-      res.json( { status:ids[0].status_ag, fecha:ids[0].start} );
-         
-    } 
-    
+      res.json({ status: ids[0].status_ag, fecha: ids[0].start });
+
+    }
+
   } catch (error) {
-registrarErrorPeticion(req, error)  
+    registrarErrorPeticion(req, error)
     res.status(500).json({ error: error });
     return
   }
 });
 
 app.post('/api/config-honorarios', authenticateToken, async (req, res) => {
-  
+
   const result = await validateHonorariosConfig(req.body);
 
-  if (result.error ){    
-    registrarErrorPeticion(req, error); 
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    registrarErrorPeticion(req, error);
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
 
   }
 
   const filtros = { ...result.data }
-  
+
   let query = `INSERT INTO grupo_estudio_honorarios
                     (descripcion,
                     activo,
@@ -1125,76 +1141,76 @@ app.post('/api/config-honorarios', authenticateToken, async (req, res) => {
                     id_moneda_tec,
                     id_cli)                     
                   VALUES (?,?,?,?,?,?,?,?,?,?)`;
-try {
-  let config_honorarios = await retornar_query(query, 
-    [
+  try {
+    let config_honorarios = await retornar_query(query,
+      [
         filtros.descripcion,
         filtros.activo,
-        filtros.porcentaje_med,        
+        filtros.porcentaje_med,
         filtros.monto_fijo,
         filtros.id_moneda,
         filtros.descuento_porcent,
         filtros.porcentaje_tec,
         filtros.monto_fijo_tec,
         filtros.id_moneda_tec,
-        filtros.id_cli       
-    ]);
-    
-  res.json({ id_insertada: config_honorarios.insertId });
-  
-} catch (error) {  
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: error });
-  return
-}
-});
+        filtros.id_cli
+      ]);
 
-app.get('/api/bcv',  async (req, res) => {
-  try {
-    obtenerTasasBCV()
-  .then(data => {
-    if (!data.error) {
-      
-      res.json({ data });
-    }
-  });
- 
-  } catch (error) {   
+    res.json({ id_insertada: config_honorarios.insertId });
+
+  } catch (error) {
     registrarErrorPeticion(req, error);
     res.status(500).json({ error: error });
-    return;
-  }  
+    return
+  }
 });
 
-
-app.get('/api/banesco',  async (req, res) => {
-  
+app.get('/api/bcv', async (req, res) => {
   try {
-    obtenerTasaBanesco()
-  .then(data => {
-    if (!data.error) {
-      
-      res.json({ data });
-    }
-  });
+    obtenerTasasBCV()
+      .then(data => {
+        if (!data.error) {
+
+          res.json({ data });
+        }
+      });
+
   } catch (error) {
     registrarErrorPeticion(req, error);
     res.status(500).json({ error: error });
     return;
-  }  
+  }
+});
+
+
+app.get('/api/banesco', async (req, res) => {
+
+  try {
+    obtenerTasaBanesco()
+      .then(data => {
+        if (!data.error) {
+
+          res.json({ data });
+        }
+      });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: error });
+    return;
+  }
 });
 
 app.patch('/api/config-honorarios', authenticateToken, async (req, res) => {
-  
+
   const result = await actualizarHonorariosConfig(req.body);
 
-  if (result.error ){   
-    registrarErrorPeticion(req, error); 
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    registrarErrorPeticion(req, error);
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
 
   }
-  
-  const filtros = { ...result.data }  
+
+  const filtros = { ...result.data }
 
   try {
     let updates = Object.keys(filtros)
@@ -1210,48 +1226,48 @@ app.patch('/api/config-honorarios', authenticateToken, async (req, res) => {
 
     values.push(filtros.id_honorario);
     let config_honorarios = await retornar_query(query, values);
-    
+
     res.json({ affectedRows: config_honorarios.affectedRows });
 
   } catch (error) {
     registrarErrorPeticion(req, error);
     res.status(500).json({ error: error });
     return;
-  }  
+  }
 });
 
 async function eliminar_pendientes() {
-    let query = `DELETE FROM
+  let query = `DELETE FROM
                   calendarios          
                 WHERE status_ag='Pendiente'`;
-    try {
-    let eliminar_pendientes = await retornar_query(query,[]);
+  try {
+    let eliminar_pendientes = await retornar_query(query, []);
 
-    } catch (error) {        
-      registrarErrorPeticion(req, error);
+  } catch (error) {
+    registrarErrorPeticion(req, error);
     return
-    }
+  }
 }
 
 cron.schedule('0 0 * * *', () => {
   eliminar_pendientes();
 }, {
-    timezone: "America/Caracas" // Zona horaria de Venezuela
+  timezone: "America/Caracas" // Zona horaria de Venezuela
 });
 
 function validarTiposConsulta(tipos) {
   if (!Array.isArray(tipos)) {
     throw new Error('tipos_consulta debe ser un array');
   }
-  
-  const invalidChars = tipos.filter(t => 
+
+  const invalidChars = tipos.filter(t =>
     typeof t !== 'string' || t.length !== 1 || !/^[A-Z]$/.test(t)
   );
-  
+
   if (invalidChars.length > 0) {
     throw new Error(`Tipos de consulta inválidos: ${invalidChars.join(', ')}. Solo se permiten letras individuales.`);
   }
-  
+
   return true;
 }
 
@@ -1259,15 +1275,15 @@ function validarActivos(activos) {
   if (!Array.isArray(activos)) {
     throw new Error('activos debe ser un array');
   }
-  
-  const invalidValues = activos.filter(a => 
+
+  const invalidValues = activos.filter(a =>
     ![0, 1].includes(Number(a))
   );
-  
+
   if (invalidValues.length > 0) {
     throw new Error(`Valores activos inválidos: ${invalidValues.join(', ')}. Solo se permiten 0 y 1.`);
   }
-  
+
   return true;
 }
 
@@ -1279,7 +1295,7 @@ async function getAdmisiones(params) {
   const tipoPlaceholders = tipos_consulta.map(() => '?').join(',');
   const activoPlaceholders = activos.map(() => '?').join(',');
 
-  const sql =`SELECT admisiones.*,
+  const sql = `SELECT admisiones.*,
 	admisiones_det.id_admision,
     CONCAT(pacientes.tipo_cedula, '-', pacientes.cedula) AS cedula_paciente,
     CONCAT(pacientes.nombres, ' ', pacientes.apellidos) AS nombre_completo_paciente,
@@ -1325,37 +1341,37 @@ WHERE
 ORDER BY admisiones.fecha_admision DESC 
     LIMIT ? OFFSET ?`;
 
-    const queryParams = [
-      id_cli,
-      fecha_inicio,
-      fecha_fin,
-      ...tipos_consulta,
-      ...activos,
-      perPage,
-      offset
-    ].filter(p => p !== undefined);
+  const queryParams = [
+    id_cli,
+    fecha_inicio,
+    fecha_fin,
+    ...tipos_consulta,
+    ...activos,
+    perPage,
+    offset
+  ].filter(p => p !== undefined);
 
   const [rows] = await retornar_query(sql, queryParams);
   return rows;
 }
 
-  app.post('/admisiones_admidet', async (req, res) => {
-    try {
-      const { id_cli, fecha_inicio, fecha_fin, tipos_consulta = [], status_cierre=null , activos = [], page = 1, perPage = 50, agrupado='s' } = req.body;
-      const offset = (page - 1) * perPage;
-      
-      const tipoPlaceholders = tipos_consulta.map(() => '?').join(',');
-      const activoPlaceholders = activos.map(() => '?').join(',');
-      let status_cierre_simbol = null
-      if(status_cierre){
-        if(status_cierre=='cerrado'){
-          status_cierre_simbol='AND admisiones.id_status_cierre > 1 '
-        }else{
-          status_cierre_simbol='AND admisiones.id_status_cierre = 1 '
-        }
+app.post('/admisiones_admidet', async (req, res) => {
+  try {
+    const { id_cli, fecha_inicio, fecha_fin, tipos_consulta = [], status_cierre = null, activos = [], page = 1, perPage = 50, agrupado = 's' } = req.body;
+    const offset = (page - 1) * perPage;
+
+    const tipoPlaceholders = tipos_consulta.map(() => '?').join(',');
+    const activoPlaceholders = activos.map(() => '?').join(',');
+    let status_cierre_simbol = null
+    if (status_cierre) {
+      if (status_cierre == 'cerrado') {
+        status_cierre_simbol = 'AND admisiones.id_status_cierre > 1 '
+      } else {
+        status_cierre_simbol = 'AND admisiones.id_status_cierre = 1 '
       }
-          
-      let sql_agrupado =`SELECT 
+    }
+
+    let sql_agrupado = `SELECT 
       admisiones.*,
       SUM(admisiones_det.precio * admisiones_det.cantidad) AS precio,
       SUM(admisiones_det.precio_usd * admisiones_det.cantidad) AS precio_usd,
@@ -1397,8 +1413,8 @@ ORDER BY admisiones.fecha_admision DESC
       pacientes AS titular ON admisiones.id_representante = titular.id_paciente
   LEFT JOIN 
       zonas ON admisiones.id_zona = zonas.id_zona  `
-        // Construir consulta
-        let sql =`SELECT admisiones.*,
+    // Construir consulta
+    let sql = `SELECT admisiones.*,
             admisiones_det.id_admidet,
             admisiones_det.precio,
             admisiones_det.precio_usd,
@@ -1448,8 +1464,8 @@ ORDER BY admisiones.fecha_admision DESC
             pacientes AS titular ON admisiones.id_representante = titular.id_paciente
         LEFT JOIN 
             zonas ON admisiones.id_zona = zonas.id_zona  `
-        
-    let wheres =   ` WHERE 
+
+    let wheres = ` WHERE 
             admisiones.id_cli = ? 
             AND admisiones_det.activo=1 
             ${status_cierre_simbol}
@@ -1458,35 +1474,35 @@ ORDER BY admisiones.fecha_admision DESC
             AND admisiones.fecha_admision BETWEEN ? AND CONCAT(?, ' 23:59:59') 
             `;
 
-        const params = [
-        id_cli,
-        ...tipos_consulta,
-        ...activos,
-        fecha_inicio,
-        fecha_fin,
-        perPage,
-        offset
-      ].filter(p => p !== undefined);
-        
-        // Ejecutar consulta de forma más segura
-        if(agrupado=='n'){
-          sql=sql+wheres+ " ORDER BY admisiones.id_admision DESC LIMIT ? OFFSET ?"
-        }else{
-          sql=sql_agrupado+ wheres + " GROUP BY     admisiones.id_admision  ORDER BY admisiones.id_admision DESC  LIMIT ? OFFSET ?"
-        }
-        
-        const result = await retornar_query(sql, params);
-        if(status_cierre){
-          if(status_cierre=='cerrado'){
-            status_cierre_simbol='AND adm.id_status_cierre != 1 '
-          }else{
-            status_cierre_simbol='AND adm.id_status_cierre = 1 '
-          }
-        }
-        
-        // Consulta de conteo
-        const countResult = await retornar_query(
-          `SELECT COUNT(adm.id_admision) as total,
+    const params = [
+      id_cli,
+      ...tipos_consulta,
+      ...activos,
+      fecha_inicio,
+      fecha_fin,
+      perPage,
+      offset
+    ].filter(p => p !== undefined);
+
+    // Ejecutar consulta de forma más segura
+    if (agrupado == 'n') {
+      sql = sql + wheres + " ORDER BY admisiones.id_admision DESC LIMIT ? OFFSET ?"
+    } else {
+      sql = sql_agrupado + wheres + " GROUP BY     admisiones.id_admision  ORDER BY admisiones.id_admision DESC  LIMIT ? OFFSET ?"
+    }
+
+    const result = await retornar_query(sql, params);
+    if (status_cierre) {
+      if (status_cierre == 'cerrado') {
+        status_cierre_simbol = 'AND adm.id_status_cierre != 1 '
+      } else {
+        status_cierre_simbol = 'AND adm.id_status_cierre = 1 '
+      }
+    }
+
+    // Consulta de conteo
+    const countResult = await retornar_query(
+      `SELECT COUNT(adm.id_admision) as total,
                   COUNT(DISTINCT adm.id_admision) as total_admisiones,
                   count(admisiones_det.id_admision) as admidet,
                   COUNT(DISTINCT adm.id_paciente) AS total_pacientes,
@@ -1500,39 +1516,39 @@ ORDER BY admisiones.fecha_admision DESC
               AND adm.fecha_admision BETWEEN ? AND CONCAT(?, ' 23:59:59')
               ${tipos_consulta.length ? `AND adm.tipo_consulta IN (${tipoPlaceholders})` : ''}
               ${activos.length ? `AND adm.activo IN (${activoPlaceholders})` : ''} `,
-          [id_cli, fecha_inicio, fecha_fin, ...tipos_consulta, ...activos]
-        );
-        
-        const pacientes = countResult[0]?.total_pacientes || 0;
-        const precio = countResult[0]?.precio || 0;
-        const precio_usd = countResult[0]?.precio_usd || 0;
-        const total = countResult[0]?.total || 0;
-        const total_admisiones = countResult[0]?.total_admisiones || 0;
-        const totalPages=(agrupado=='n') ? Math.ceil(total / perPage):  Math.ceil(total_admisiones / perPage)
-        res.json({ 
-          success: true,
-          resultados: result,
-          pagination: {
-            page,
-            perPage,
-            total,
-            totalPages,
-            pacientes,
-            precio,
-            precio_usd,total_admisiones
-          }
-        });
-      
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      
-      res.status(500).json({
-        success: false,
-        message: 'Error al procesar la solicitud',
-        error: error.message
-      });
-    }
-  });
+      [id_cli, fecha_inicio, fecha_fin, ...tipos_consulta, ...activos]
+    );
+
+    const pacientes = countResult[0]?.total_pacientes || 0;
+    const precio = countResult[0]?.precio || 0;
+    const precio_usd = countResult[0]?.precio_usd || 0;
+    const total = countResult[0]?.total || 0;
+    const total_admisiones = countResult[0]?.total_admisiones || 0;
+    const totalPages = (agrupado == 'n') ? Math.ceil(total / perPage) : Math.ceil(total_admisiones / perPage)
+    res.json({
+      success: true,
+      resultados: result,
+      pagination: {
+        page,
+        perPage,
+        total,
+        totalPages,
+        pacientes,
+        precio,
+        precio_usd, total_admisiones
+      }
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+
+    res.status(500).json({
+      success: false,
+      message: 'Error al procesar la solicitud',
+      error: error.message
+    });
+  }
+});
 
 function validarParametrosAdmisiones(req, res, next) {
   try {
@@ -1544,7 +1560,7 @@ function validarParametrosAdmisiones(req, res, next) {
     }
     next();
   } catch (error) {
-registrarErrorPeticion(req, error)
+    registrarErrorPeticion(req, error)
     res.status(400).json({ error: error.message });
   }
 }
@@ -1554,17 +1570,17 @@ app.post('/cerrar_admision', async (req, res) => {
     const { id_admision,
       motivo,
       id_usuario,
-      nota, 
+      nota,
       factura } = req.body;
-      
-      if(!id_admision || !motivo || !id_usuario ){
-        return res.status(400).json({ error: '356' }); //No se enviaron los campos necesarios
-      }
-      if(isNaN(id_admision) || isNaN(motivo) || isNaN(id_usuario)){
-        return res.status(400).json({ error: '357' }); //Campos invalidos
-      }
 
-    let sql =`UPDATE 
+    if (!id_admision || !motivo || !id_usuario) {
+      return res.status(400).json({ error: '356' }); //No se enviaron los campos necesarios
+    }
+    if (isNaN(id_admision) || isNaN(motivo) || isNaN(id_usuario)) {
+      return res.status(400).json({ error: '357' }); //Campos invalidos
+    }
+
+    let sql = `UPDATE 
                 admisiones 
               SET 
                 id_status_cierre=?, 
@@ -1576,33 +1592,35 @@ app.post('/cerrar_admision', async (req, res) => {
               WHERE 
                 id_admision=?`;
 
-      const params = [motivo,
-        nota,
-        id_usuario,
-        factura,
-        id_admision
-      ];
-      let sql_admision =`SELECT 
+    const params = [motivo,
+      nota,
+      id_usuario,
+      factura,
+      id_admision
+    ];
+    let sql_admision = `SELECT 
                 id_status_cierre 
               FROM
                 admisiones              
               WHERE 
                 id_admision=?`;
-      const params_sql = [id_admision];
-      const result_status = await retornar_query(sql_admision, params_sql);
-      
-      if(result_status[0].id_status_cierre!=1){
-        return res.status(400).json({ error: '358' }); //Admision ya cerrada
-      }
+    const params_sql = [id_admision];
+    const result_status = await retornar_query(sql_admision, params_sql);
 
-      const result = await retornar_query(sql,params);      
-      
-      res.json({success: true,
-        resultados: result});
-     
+    if (result_status[0].id_status_cierre != 1) {
+      return res.status(400).json({ error: '358' }); //Admision ya cerrada
+    }
+
+    const result = await retornar_query(sql, params);
+
+    res.json({
+      success: true,
+      resultados: result
+    });
+
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
     res.status(500).json({
       success: false,
       message: 'Error al procesar la solicitud',
@@ -1612,29 +1630,29 @@ registrarErrorPeticion(req, error)
 });
 
 app.get('/api/cmic/recibo_honorarios', async (req, res) => {
-  const { recibo } = req.query; 
-  
-  if(recibo=='' || recibo===null){
+  const { recibo } = req.query;
+
+  if (recibo == '' || recibo === null) {
     res.status(500).json({ error: 'CM02' }); //recibo no enviado
     return
   }
-  if(isNaN(recibo) ){
+  if (isNaN(recibo)) {
     res.status(500).json({ error: 'CM01' }); //recibo invalido
     return
   }
   let query_honorario = contenedor_query[4][1] + "  and cp.activo !=0"
- 
-  const result = await retornar_query( query_honorario, recibo);
 
-  if(result.error){
-      let query_honorario = contenedor_query[4][1]  
-      const result = await retornar_query( query_honorario, recibo);
-      if(result.error){
-        res.status(500).json({ error: 'CM04' }); //recibo no existe
-      }
-      res.status(500).json({ error: 'CM03' }); //admision no cobrada
+  const result = await retornar_query(query_honorario, recibo);
+
+  if (result.error) {
+    let query_honorario = contenedor_query[4][1]
+    const result = await retornar_query(query_honorario, recibo);
+    if (result.error) {
+      res.status(500).json({ error: 'CM04' }); //recibo no existe
+    }
+    res.status(500).json({ error: 'CM03' }); //admision no cobrada
     return
-  }  
+  }
 
   const query_ppl = `SELECT 
                      id_med,                      
@@ -1647,7 +1665,7 @@ app.get('/api/cmic/recibo_honorarios', async (req, res) => {
                       hon_med_recibo
                     WHERE 
                       hon_med_recibo.id_hon_med_pago=?`;
-                    
+
   const result_ppl = await retornar_query(query_ppl, recibo);
 
   const query_tipo3 = `SELECT 
@@ -1679,19 +1697,21 @@ app.get('/api/cmic/recibo_honorarios', async (req, res) => {
                           id_hon_med_pago =?`;
   const result_tipo2 = await retornar_query(query_tipo2, recibo);
 
-  result.push({result_tipo3})
-  res.json({success: true,
+  result.push({ result_tipo3 })
+  res.json({
+    success: true,
     resultados: result,
     result_tipo2: result_tipo2,
-    recibo: result_ppl});
+    recibo: result_ppl
+  });
 });
 
-app.post('/api/listado_entrega',  async (req, res) => {
+app.post('/api/listado_entrega', async (req, res) => {
   const result = req.body;
 
-  if (result.error ){    
-    registrarErrorPeticion(req, error); 
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    registrarErrorPeticion(req, error);
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
 
   const { fecha_inicio, fecha_fin, tipos_admision, id_cli } = result;
@@ -1718,20 +1738,20 @@ app.post('/api/listado_entrega',  async (req, res) => {
   }
   let query_l = "";
   grupos = result.grupos || [];
-  tipos = result.tipos || [];  
-try {
-  if (tipos.length >0) {
-    tipos = ` e.id_tipo_estudio IN (${tipos}) AND `
-  }else{
-    tipos = ""
-  }
-  if (grupos.length >0) {
-    grupos = ` e.id_grupo_estudio IN (${grupos}) AND `
-  }else{
-    grupos = ""
-  }
-  
-  query_l = `SELECT
+  tipos = result.tipos || [];
+  try {
+    if (tipos.length > 0) {
+      tipos = ` e.id_tipo_estudio IN (${tipos}) AND `
+    } else {
+      tipos = ""
+    }
+    if (grupos.length > 0) {
+      grupos = ` e.id_grupo_estudio IN (${grupos}) AND `
+    } else {
+      grupos = ""
+    }
+
+    query_l = `SELECT
                 a.fecha_admision,
                 a.tipo_consulta,
                 a.id_admision,
@@ -1776,20 +1796,21 @@ try {
                 ${grupos}
                 a.fecha_admision BETWEEN ? AND CONCAT(?, ' 23:59:59') 
               ORDER BY ad.fecha_detalle DESC`;
-} catch (error) {
-registrarErrorPeticion(req, error)
-  res.status(500).json({ error: error,
-  });  
-}
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.status(500).json({
+      error: error,
+    });
+  }
 
-try {
-  let json_reporte = await retornar_query(query_l, 
-    [
-      result.id_cli,
-      result.tipos_admision,
-      result.fecha_inicio,        
-      result.fecha_fin
-    ]); 
+  try {
+    let json_reporte = await retornar_query(query_l,
+      [
+        result.id_cli,
+        result.tipos_admision,
+        result.fecha_inicio,
+        result.fecha_fin
+      ]);
     let json_muestras = await retornar_query(
       `SELECT 
         muestras.id, 
@@ -1799,11 +1820,11 @@ try {
       WHERE 
         activo=1 and id_cli=? 
       ORDER BY
-        muestras.descripcion ASC `, 
+        muestras.descripcion ASC `,
       [
         result.id_cli
-      ]); 
-      let json_metodos = await retornar_query(
+      ]);
+    let json_metodos = await retornar_query(
       `SELECT 
         mp.id, 
         mp.descripcion 
@@ -1812,38 +1833,39 @@ try {
       WHERE 
         activo=1 and id_cli=? 
       ORDER BY
-        mp.descripcion ASC `, 
+        mp.descripcion ASC `,
       [
         result.id_cli
-      ]); 
-  res.json({ 
-    success: true,
-    resultados:json_reporte,
-    muestras: json_muestras,
-    metodos: json_metodos
-  });
-  
-} catch (error) {
-registrarErrorPeticion(req, error)  
-  res.status(500).json({ error: error,
-  } );   
-  return
-}
+      ]);
+    res.json({
+      success: true,
+      resultados: json_reporte,
+      muestras: json_muestras,
+      metodos: json_metodos
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.status(500).json({
+      error: error,
+    });
+    return
+  }
 });
 
-app.patch('/api/actualizar-admision',  async (req, res) => {
-  
-  const result = await actualizarAdmision(req.query); 
-  
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+app.patch('/api/actualizar-admision', async (req, res) => {
+
+  const result = await actualizarAdmision(req.query);
+
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
   const filtros = { ...result.data }
-  var valor_actualizable =''
+  var valor_actualizable = ''
   switch (filtros.campo) {
     case 'diagnostico':
       valor_actualizable = filtros.diagnostico;
-      break;    
+      break;
     default:
       break;
   }
@@ -1851,83 +1873,85 @@ app.patch('/api/actualizar-admision',  async (req, res) => {
 
   let query_adm = `UPDATE admisiones SET ${filtros.campo}='${valor_actualizable}'
                   WHERE id_admision=?`;
-try {
-  
-  let admision = await retornar_query(query_adm, [filtros.id_admision]);
-  
-  res.json({ cantidad_rows: admision.affectedRows });
-  
-} catch (error) {  
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: 'No existe admision' });
-  return
-}
+  try {
+
+    let admision = await retornar_query(query_adm, [filtros.id_admision]);
+
+    res.json({ cantidad_rows: admision.affectedRows });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: 'No existe admision' });
+    return
+  }
 });
 
-app.patch('/api/estudios-muestras',  async (req, res) => {
-  
+app.patch('/api/estudios-muestras', async (req, res) => {
+
   const result = req.query;
-  
+
   if (isNaN(result.id_estudio) || isNaN(result.id_muestra)) {
-    return res.status(400).json({ error: 'AEM01',result }); //id_estudio o id_muestra no es un número
+    return res.status(400).json({ error: 'AEM01', result }); //id_estudio o id_muestra no es un número
   }
- 
+
   let query_estudios_muestras = `SELECT id_muestra FROM estudios_muestras
                   WHERE id_estudio=?`;
-try {
- 
-  let id_muestra = await retornar_query(query_estudios_muestras, [result.id_estudio]);
-  
-  if(id_muestra.error){
-    query_estudios_muestras = 
-      `INSERT INTO 
+  try {
+
+    let id_muestra = await retornar_query(query_estudios_muestras, [result.id_estudio]);
+
+    if (id_muestra.error) {
+      query_estudios_muestras =
+        `INSERT INTO 
         estudios_muestras (id_muestra, id_estudio, activo) 
       VALUES (?,?, 1)`;
-    id_muestra = await retornar_query(query_estudios_muestras, [result.id_muestra, result.id_estudio]);
-    if(id_muestra.error){
-      res.status(500).json({ error: 'AEM02' }); //Error al insertar la muestra
-      return
-    }   
-    res.json({ 
-      metodo: 'insertar',
-      Muestra: id_muestra.insertId }); 
-  }else{
-    query_estudios_muestras = 
-      `UPDATE estudios_muestras SET id_muestra=?, activo=1 
+      id_muestra = await retornar_query(query_estudios_muestras, [result.id_muestra, result.id_estudio]);
+      if (id_muestra.error) {
+        res.status(500).json({ error: 'AEM02' }); //Error al insertar la muestra
+        return
+      }
+      res.json({
+        metodo: 'insertar',
+        Muestra: id_muestra.insertId
+      });
+    } else {
+      query_estudios_muestras =
+        `UPDATE estudios_muestras SET id_muestra=?, activo=1 
       WHERE id_estudio=?`;
-    id_muestra = await retornar_query(query_estudios_muestras, [result.id_muestra, result.id_estudio ]);
-    if(id_muestra.error){
-      res.status(500).json({ error: 'AEM03' }); //Error al actualizar la muestra
-      return
-    }    
-    res.json({ 
-      metodo: 'actualizar',
-      Muestra: id_muestra.affectedRows }); 
-  }
+      id_muestra = await retornar_query(query_estudios_muestras, [result.id_muestra, result.id_estudio]);
+      if (id_muestra.error) {
+        res.status(500).json({ error: 'AEM03' }); //Error al actualizar la muestra
+        return
+      }
+      res.json({
+        metodo: 'actualizar',
+        Muestra: id_muestra.affectedRows
+      });
+    }
 
-  
-} catch (error) {  
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: error });
-  return
-}
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: error });
+    return
+  }
 });
 
-app.patch('/api/tasas-admision',  async (req, res) => {
-  
+app.patch('/api/tasas-admision', async (req, res) => {
+
   const result = req.body;
-  
- if (!Array.isArray(result.admisiones)) {
-    return res.status(400).json({ error: 'ATA01', parametros: result.admisiones});//, message: 'admisiones debe ser un array' 
+
+  if (!Array.isArray(result.admisiones)) {
+    return res.status(400).json({ error: 'ATA01', parametros: result.admisiones });//, message: 'admisiones debe ser un array' 
   }
   if (result.admisiones.length === 0) {
-    return res.status(400).json({ error: 'ATA02'});//, message: 'admisiones no puede estar vacío' 
+    return res.status(400).json({ error: 'ATA02' });//, message: 'admisiones no puede estar vacío' 
   }
   if (isNaN(result.tasa)) {
-    return res.status(400).json({ error: 'ATA03'});//, message: 'tasa debe ser un número' 
+    return res.status(400).json({ error: 'ATA03' });//, message: 'tasa debe ser un número' 
   }
 
-  let query_validar = 
+  let query_validar =
     `SELECT 
       COUNT(id_admision) as cantidad
     FROM 
@@ -1936,58 +1960,59 @@ app.patch('/api/tasas-admision',  async (req, res) => {
       id_admision IN (?) AND 
       id_status_cierre!=1`;
 
-try {
- 
-  let cantidad_cerrada = await retornar_query(query_validar, [result.admisiones]);
-  
-  if(cantidad_cerrada[0].cantidad > 0){
-      res.status(500).json({ 
+  try {
+
+    let cantidad_cerrada = await retornar_query(query_validar, [result.admisiones]);
+
+    if (cantidad_cerrada[0].cantidad > 0) {
+      res.status(500).json({
         estado: 'error',
         error: `Existen ${cantidad_cerrada[0].cantidad} admisiones cerradas`,
-        }); 
-      return   
-  }else{
-    let query_admisiones_tasa = 
-      `UPDATE admisiones SET tasa=? 
-      WHERE id_admision IN (?)`;
-    let admisiones_cambiadas = await retornar_query(query_admisiones_tasa, [result.tasa, result.admisiones ]);
-    if(admisiones_cambiadas.error){
-      res.status(500).json({ error: 'ATA05' }); //Error al actualizar la admision
+      });
       return
-    } 
-
-    let query_admisiones_det_tasa = 
-      `UPDATE admisiones_det SET cambio=?, precio=(precio_usd * ?) 
+    } else {
+      let query_admisiones_tasa =
+        `UPDATE admisiones SET tasa=? 
       WHERE id_admision IN (?)`;
-    let admisiones_det_cambiadas = await retornar_query(query_admisiones_det_tasa, [result.tasa, result.tasa, result.admisiones ]);
-    
-    if(admisiones_det_cambiadas.error){
-      res.status(500).json({ error: 'ATA06' }); //Error al actualizar la admision_det
-      return
-    }    
+      let admisiones_cambiadas = await retornar_query(query_admisiones_tasa, [result.tasa, result.admisiones]);
+      if (admisiones_cambiadas.error) {
+        res.status(500).json({ error: 'ATA05' }); //Error al actualizar la admision
+        return
+      }
 
-    res.json({ 
-      estado: 'ok',
-      admisiones: admisiones_cambiadas.affectedRows,
-      detalles: admisiones_det_cambiadas.affectedRows,
-      cantidad: cantidad_cerrada[0].cantidad, }
-      ); 
+      let query_admisiones_det_tasa =
+        `UPDATE admisiones_det SET cambio=?, precio=(precio_usd * ?) 
+      WHERE id_admision IN (?)`;
+      let admisiones_det_cambiadas = await retornar_query(query_admisiones_det_tasa, [result.tasa, result.tasa, result.admisiones]);
+
+      if (admisiones_det_cambiadas.error) {
+        res.status(500).json({ error: 'ATA06' }); //Error al actualizar la admision_det
+        return
+      }
+
+      res.json({
+        estado: 'ok',
+        admisiones: admisiones_cambiadas.affectedRows,
+        detalles: admisiones_det_cambiadas.affectedRows,
+        cantidad: cantidad_cerrada[0].cantidad,
+      }
+      );
+    }
+
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: error });
+    return
   }
-
-  
-} catch (error) {  
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: error });
-  return
-}
 });
 
-app.post('/api/add_zonas',  async (req, res) => {
+app.post('/api/add_zonas', async (req, res) => {
   const result = req.body;
 
-  if (result.error ){
-    registrarErrorPeticion(req, error);    
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    registrarErrorPeticion(req, error);
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
 
   const { id_zona, id_parroquia, descripcion, activo } = result;
@@ -1995,70 +2020,71 @@ app.post('/api/add_zonas',  async (req, res) => {
 
 
   let query = "";
-  let json_result ="";
-try {
-  if (!id_zona) {
-    if (!id_parroquia || !descripcion ) {
-      return res.status(400).json({ error: 'az01' });
-    }
-    query = `INSERT INTO  
+  let json_result = "";
+  try {
+    if (!id_zona) {
+      if (!id_parroquia || !descripcion) {
+        return res.status(400).json({ error: 'az01' });
+      }
+      query = `INSERT INTO  
               zonas 
             (id_parroquia,zona,activo)
               VALUES
             (?,?,1)`;
-    json_result = await retornar_query(query, 
-            [ result.id_parroquia,
-              result.descripcion ]); 
-  }else{
-    if (!isNaN(activo)) {
-      if (!id_zona ) {
-        return res.status(400).json({ error: 'az02' });
-      }
-      query = `UPDATE
+      json_result = await retornar_query(query,
+        [result.id_parroquia,
+        result.descripcion]);
+    } else {
+      if (!isNaN(activo)) {
+        if (!id_zona) {
+          return res.status(400).json({ error: 'az02' });
+        }
+        query = `UPDATE
                 zonas
               SET activo=?
                 WHERE
               id_zona=?`;
-      json_result = await retornar_query(query, 
-                [ result.activo,
-                  result.id_zona ]); 
-    }else{
-      query = `UPDATE
+        json_result = await retornar_query(query,
+          [result.activo,
+          result.id_zona]);
+      } else {
+        query = `UPDATE
                 zonas
               SET id_parroquia=?,zona=? 
                 WHERE
               id_zona=?`;
-      json_result = await retornar_query(query, 
-              [ result.id_parroquia,
-                result.descripcion,
-                result.id_zona]); 
+        json_result = await retornar_query(query,
+          [result.id_parroquia,
+          result.descripcion,
+          result.id_zona]);
+      }
     }
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.status(500).json({
+      error: error,
+    });
   }
-   
-} catch (error) {
-registrarErrorPeticion(req, error)
-  res.status(500).json({ error: error,
-  });  
-}
 
-res.json({ 
-  success: true,
-  resultados:json_result
-});
+  res.json({
+    success: true,
+    resultados: json_result
+  });
 
 });
 
-app.post('/api/movimiento_inventario',  async (req, res) => {
+app.post('/api/movimiento_inventario', async (req, res) => {
   const result = req.body;
 
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
 
-  const { almacen_salida, 
-    almacen_destino, 
-    id_insumo, 
-    id_entrega, 
+  const { almacen_salida,
+    almacen_destino,
+    id_insumo,
+    id_entrega,
     id_responsable,
     cantidad,
     descripcion,
@@ -2075,77 +2101,80 @@ app.post('/api/movimiento_inventario',  async (req, res) => {
     }
   }
 
-  let query_salida = `Select id_almacen from almacenes_consultorio where id_consultorio =?`; 
-  let almacen_salida_final =await retornar_query(query_salida,[almacen_salida]);
+  let query_salida = `Select id_almacen from almacenes_consultorio where id_consultorio =?`;
+  let almacen_salida_final = await retornar_query(query_salida, [almacen_salida]);
   try {
-    almacen_salida_final = almacen_salida_final[0].id_almacen;  
+    almacen_salida_final = almacen_salida_final[0].id_almacen;
   } catch (error) {
-registrarErrorPeticion(req, error)
-    return res.json({success: false,
-      result: "Este almacen no esta configurado"}); 
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      result: "Este almacen no esta configurado"
+    });
   }
   let query = "";
-  let json_result_salida ="";
-  let json_result_entrada ="";
-try {  
+  let json_result_salida = "";
+  let json_result_entrada = "";
+  try {
     query = `INSERT INTO  
               almacen_movimientos 
                 (id_almacen, id_insumo, id_entrega, id_responsable, cantidad, descripcion,id_admidet)
               VALUES
                 (?,?,?,?,?,?,?)`;
-    json_result_salida = await retornar_query(query, 
-            [ almacen_salida_final, 
-              id_insumo, 
-              id_entrega, 
-              id_responsable,
-              Number(cantidad*(-1)),              
-              descripcion,
-              id_admidet]); 
+    json_result_salida = await retornar_query(query,
+      [almacen_salida_final,
+        id_insumo,
+        id_entrega,
+        id_responsable,
+        Number(cantidad * (-1)),
+        descripcion,
+        id_admidet]);
 
-    json_result_entrada = await retornar_query(query, 
-                [ almacen_destino, 
-                  id_insumo, 
-                  id_entrega, 
-                  id_responsable,
-                  cantidad,              
-                  descripcion_salida,
-                  id_admidet]); 
-  
-   
-} catch (error) {
-  query = `DELETE FROM  
+    json_result_entrada = await retornar_query(query,
+      [almacen_destino,
+        id_insumo,
+        id_entrega,
+        id_responsable,
+        cantidad,
+        descripcion_salida,
+        id_admidet]);
+
+
+  } catch (error) {
+    query = `DELETE FROM  
               almacen_movimientos 
           WHERE id_admidet =?`;
-    json_result_salida = await retornar_query(query, 
-            [ id_admidet]); 
-  query = `DELETE FROM  
+    json_result_salida = await retornar_query(query,
+      [id_admidet]);
+    query = `DELETE FROM  
             admisiones_det 
         WHERE id_admidet =?`;
-  json_result_entrada = await retornar_query(query, 
-          [ id_admidet]); 
-  res.status(500).json({ error: error,
-    almacen:json_result_salida,
-    detalle:json_result_entrada
-  });  
-}
-
-res.json({ 
-  success: true,
-  salida:json_result_salida,
-  entrada:json_result_entrada
-});
-
-});
-
-app.post('/api/devol_inventario',  async (req, res) => {
-  const result = req.body;
-
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+    json_result_entrada = await retornar_query(query,
+      [id_admidet]);
+    res.status(500).json({
+      error: error,
+      almacen: json_result_salida,
+      detalle: json_result_entrada
+    });
   }
 
-  const { almacen_salida,     
-    id_insumo, 
+  res.json({
+    success: true,
+    salida: json_result_salida,
+    entrada: json_result_entrada
+  });
+
+});
+
+app.post('/api/devol_inventario', async (req, res) => {
+  const result = req.body;
+
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
+  }
+
+  const { almacen_salida,
+    id_insumo,
     insumo,
     id_responsable,
     cantidad,
@@ -2162,115 +2191,121 @@ app.post('/api/devol_inventario',  async (req, res) => {
   }
 
   let query = "";
-  let json_result_salida ="";
-  let json_result_devolucion ="";
-  let json_result_admision ="";
-try {  
-  if(insumo==1){
-    query = "SELECT id_entrega FROM almacen_movimientos WHERE id_admidet=? limit 1"
-    
-    let json_entrega =  await retornar_query(query, [ id_admidet ]);
+  let json_result_salida = "";
+  let json_result_devolucion = "";
+  let json_result_admision = "";
+  try {
+    if (insumo == 1) {
+      query = "SELECT id_entrega FROM almacen_movimientos WHERE id_admidet=? limit 1"
 
-    if (!json_entrega[0]?.id_entrega) {
+      let json_entrega = await retornar_query(query, [id_admidet]);
+
+      if (!json_entrega[0]?.id_entrega) {
         return res.status(400).json({ error: 'id_entrega error' });
-    }
-    
-    query = `INSERT INTO  
+      }
+
+      query = `INSERT INTO  
         almacen_movimientos 
           (id_almacen, id_insumo, id_entrega, id_responsable, cantidad, descripcion,id_admidet)
         VALUES
           ((SELECT id_consultorio FROM consultorios WHERE descripcion='RESERVA' AND id_cli =? limit 1),?,?,?,?,?,?)`;
-   
-    json_result_salida = await retornar_query(query, 
-      [ id_cli, 
-        id_insumo, 
-        json_entrega[0].id_entrega, 
-        id_responsable,
-        Number(cantidad*(-1)),              
-        descripcion,
-        id_admidet]); 
 
-    query = `INSERT INTO  
+      json_result_salida = await retornar_query(query,
+        [id_cli,
+          id_insumo,
+          json_entrega[0].id_entrega,
+          id_responsable,
+          Number(cantidad * (-1)),
+          descripcion,
+          id_admidet]);
+
+      query = `INSERT INTO  
         almacen_movimientos 
           (id_almacen, id_insumo, id_entrega, id_responsable, cantidad, descripcion,id_admidet)
         VALUES
       ((SELECT id_consultorio FROM consultorios WHERE descripcion='DEVOLUCIONES' AND id_cli =? limit 1),?,?,?,?,?,?)`;
 
-    json_result_devolucion = await retornar_query(query, 
-          [ id_cli, 
-            id_insumo, 
-            json_entrega[0].id_entrega,
-            id_responsable,
-            cantidad,              
-            descripcion_salida,
-            id_admidet]); 
-  }
-  
-      query = `UPDATE admisiones_det SET activo=0, nota='Eliminado por: ${usuario}' 
+      json_result_devolucion = await retornar_query(query,
+        [id_cli,
+          id_insumo,
+          json_entrega[0].id_entrega,
+          id_responsable,
+          cantidad,
+          descripcion_salida,
+          id_admidet]);
+    }
+
+    query = `UPDATE admisiones_det SET activo=0, nota='Eliminado por: ${usuario}' 
               WHERE id_admidet =?`;
-            
-      json_result_admision = await retornar_query(query, 
-                [ 
-                                    id_admidet,                  
-                ]);   
-      return res.json({
-        admision: json_result_admision,
-        almacen: json_result_salida,
-        detalle: json_result_devolucion
-      });
+
+    json_result_admision = await retornar_query(query,
+      [
+        id_admidet,
+      ]);
+    return res.json({
+      admision: json_result_admision,
+      almacen: json_result_salida,
+      detalle: json_result_devolucion
+    });
   } catch (error) {
-registrarErrorPeticion(req, error)
+    registrarErrorPeticion(req, error)
     res.status(500).json({ error: error.message })
   }
- 
+
 });
 
 app.get('/api/promociones_admi', async (req, res) => {
-  const { admisiones } = req.query; 
-  
-  if(admisiones=='' || admisiones===null){
+  const { admisiones } = req.query;
+
+  if (admisiones == '' || admisiones === null) {
     res.status(500).json({ error: 'PA01' }); //promo no enviada
     return
   }
 
-    let admisionesArr = admisiones.split(',').map(numero => parseInt(numero.trim(),10));
-  
-    const admisionesPlaceholders = admisionesArr.map(() => '?').join(',');
+  let admisionesArr = admisiones.split(',').map(numero => parseInt(numero.trim(), 10));
+
+  const admisionesPlaceholders = admisionesArr.map(() => '?').join(',');
 
   let query_honorario = contenedor_query[1][6] + ` WHERE ad.id_admision in (${admisionesPlaceholders})`
- 
-  const result = await retornar_query( query_honorario, [...admisionesArr]);
-if(result.error){
-  return res.json({success: false,
-    resultados: "sin descuentos"});
-}
-  res.json({success: true,
-    resultados: result});
+
+  const result = await retornar_query(query_honorario, [...admisionesArr]);
+  if (result.error) {
+    return res.json({
+      success: false,
+      resultados: "sin descuentos"
+    });
+  }
+  res.json({
+    success: true,
+    resultados: result
+  });
 });
 
 app.get('/api/almacenes/listado_med_grupos', async (req, res) => {
-  const {almacen, grupo } = req.query; 
-  
-  if(grupo=='' || grupo===null){
+  const { almacen, grupo } = req.query;
+
+  if (grupo == '' || grupo === null) {
     res.status(500).json({ error: 'LG01' }); //listado no enviada
     return
   }
 
-  if(almacen=='' || almacen===null){
+  if (almacen == '' || almacen === null) {
     res.status(500).json({ error: 'LG02' }); //listado no enviada
     return
   }
 
-  let query_salida = `Select id_almacen from almacenes_consultorio where id_consultorio =?`; 
-  let almacen_salida_final =await retornar_query(query_salida,[almacen]);
+  let query_salida = `Select id_almacen from almacenes_consultorio where id_consultorio =?`;
+  let almacen_salida_final = await retornar_query(query_salida, [almacen]);
   try {
-    almacen_salida_final = almacen_salida_final[0].id_almacen;  
+    almacen_salida_final = almacen_salida_final[0].id_almacen;
   } catch (error) {
     registrarErrorPeticion(req, "Este almacen no esta configurado")
-    return res.json({success: false,
-      result: "Este almacen no esta configurado"}); 
+    return res.json({
+      success: false,
+      result: "Este almacen no esta configurado"
+    });
   }
-  
+
 
   let query_listado = `
   SELECT 
@@ -2300,22 +2335,26 @@ app.get('/api/almacenes/listado_med_grupos', async (req, res) => {
   HAVING 
       SUM(am.cantidad) > 0
   ORDER BY
-      e.descripcion;`; 
-  const result = await retornar_query( query_listado, [almacen_salida_final,grupo]);
-  if(result.error){
-    let query =`
+      e.descripcion;`;
+  const result = await retornar_query(query_listado, [almacen_salida_final, grupo]);
+  if (result.error) {
+    let query = `
     SELECT id_estudio as id_insumo,
           descripcion as insumo from estudios 
           where activo='1' and id_grupo_estudio =?`
-    let resultado = await retornar_query( query, [grupo]);
-    return res.json({success: false,
-      result: resultado});
+    let resultado = await retornar_query(query, [grupo]);
+    return res.json({
+      success: false,
+      result: resultado
+    });
   }
-  res.json({success: true,
-    result});
+  res.json({
+    success: true,
+    result
+  });
 });
 
-async function historico_precios(admidet){
+async function historico_precios(admidet) {
   let query_historico = `
     INSERT INTO 
       historico_precios (id_admidet, precio, precio_usd,  tasa, id_usuario)
@@ -2331,14 +2370,14 @@ async function historico_precios(admidet){
 }
 
 app.patch('/api/cambio-precios-admision', authenticateToken, async (req, res) => {
-  const { admidet, tasa, precio, precio_usd, id_usuario } = req.body; 
-  
-  if(admidet=='' || admidet===null){
-    res.json({success:false, error: 'CPA01' }); //promo no enviada
+  const { admidet, tasa, precio, precio_usd, id_usuario } = req.body;
+
+  if (admidet == '' || admidet === null) {
+    res.json({ success: false, error: 'CPA01' }); //promo no enviada
     return
   }
 
-let admidet_status = `
+  let admidet_status = `
 SELECT 
   id_status_cierre 
 FROM
@@ -2346,39 +2385,41 @@ FROM
 WHERE
   id_admision = (SELECT id_admision FROM admisiones_det WHERE id_admidet = ?)`
 
-let result_status = await retornar_query(admidet_status, [admidet]);
+  let result_status = await retornar_query(admidet_status, [admidet]);
 
-if(result_status[0].id_status_cierre!=1){
-  return res.json({success:false, error: 'La admision esta cerrada' }); //Admision cerrada
-}
+  if (result_status[0].id_status_cierre != 1) {
+    return res.json({ success: false, error: 'La admision esta cerrada' }); //Admision cerrada
+  }
 
   let historico = await historico_precios(admidet);
 
-  if(historico.error){
-    return res.json({success:false, error: 'CPA02'  })
+  if (historico.error) {
+    return res.json({ success: false, error: 'CPA02' })
   }
 
   let query = `
     UPDATE admisiones_det
     SET precio = ?, precio_usd = ?, cambio = ?, id_usuario = ?
     WHERE id_admidet = ?`;
-    
-  const result = await retornar_query( query, [precio, precio_usd, tasa, id_usuario, admidet]);
 
-if(result.error){
-  return res.json({success: false, error: 'CPA03'});
-}
-    if (req.requestId) {
-      await registrarFinPeticion(req.requestId);
-    }
-  res.json({success: true,
-    resultados: result});
+  const result = await retornar_query(query, [precio, precio_usd, tasa, id_usuario, admidet]);
+
+  if (result.error) {
+    return res.json({ success: false, error: 'CPA03' });
+  }
+  if (req.requestId) {
+    await registrarFinPeticion(req.requestId);
+  }
+  res.json({
+    success: true,
+    resultados: result
+  });
 });
 
 app.get('/api/historico_precios', async (req, res) => {
-  const { admidet } = req.query; 
-  
-  if(admidet=='' || admidet===null){
+  const { admidet } = req.query;
+
+  if (admidet == '' || admidet === null) {
     res.json({ success: false, error: 'HP01' }); //ADMIDET NO enviada
     return
   }
@@ -2392,14 +2433,16 @@ app.get('/api/historico_precios', async (req, res) => {
     usuarios u ON hp.id_usuario = u.id
   WHERE 
     hp.id_admidet = ?`
- 
-  const result = await retornar_query( query_historico, [admidet]);
 
-  if(result.error){
-    res.json({ success: true, 
-      error: 'No existe historico para este detalle' });
+  const result = await retornar_query(query_historico, [admidet]);
+
+  if (result.error) {
+    res.json({
+      success: true,
+      error: 'No existe historico para este detalle'
+    });
     return
-  }  
+  }
 
   let query = `
   SELECT
@@ -2410,15 +2453,17 @@ app.get('/api/historico_precios', async (req, res) => {
     usuarios u ON ad.id_usuario = u.id
   WHERE 
     ad.id_admidet = ?`
- 
-  let result_actual = await retornar_query( query, [admidet]);
-result.push(result_actual[0])
-  res.json({success: true,
-    resultados: result});
+
+  let result_actual = await retornar_query(query, [admidet]);
+  result.push(result_actual[0])
+  res.json({
+    success: true,
+    resultados: result
+  });
 });
 
-app.get('/api/estudios-filtrados', async (req, res)=> {
-  const {id_cli, id_medico, dia} =req.query;
+app.get('/api/estudios-filtrados', async (req, res) => {
+  const { id_cli, id_medico, dia } = req.query;
   if (!id_cli || !id_medico || !dia) {
     return res.status(400).json({ error: 'Todos los parámetros son requeridos.' });
   }
@@ -2453,7 +2498,7 @@ app.get('/api/estudios-filtrados', async (req, res)=> {
       return res.status(400).json({ error: 'Día inválido.' });
   }
 
-  let query =`
+  let query = `
     SELECT
       e.id_estudio,
       e.descripcion,
@@ -2469,29 +2514,29 @@ app.get('/api/estudios-filtrados', async (req, res)=> {
       epm.id_medico = ? AND
       epm.id_cli = ? AND
       ${dia_query}`
-    
-  let estudios = await retornar_query(query,[id_medico, id_cli]);
 
-  if(estudios.error){
+  let estudios = await retornar_query(query, [id_medico, id_cli]);
+
+  if (estudios.error) {
     query = `SELECT id_estudio, descripcion FROM estudios WHERE activo=1 AND id_cli=?`
-    estudios = await retornar_query(query,[id_cli]);
+    estudios = await retornar_query(query, [id_cli]);
   }
   res.json({ success: true, result: estudios });
 
 })
 
-app.get('/api/config-filtro-estudios',  async (req,res)=>{
+app.get('/api/config-filtro-estudios', async (req, res) => {
   const { id_cli, id_medico } = req.query;
-  if (!id_cli ) {
+  if (!id_cli) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
-  if (isNaN(id_cli) ) {
+  if (isNaN(id_cli)) {
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
 
-  if(id_medico==0){
-      let query_medicos = 
-            `SELECT
+  if (id_medico == 0) {
+    let query_medicos =
+      `SELECT
               m.id_medico,
               CONCAT(m.nombre, ' ', m.apellido) as medico,
               mc.codigo
@@ -2502,12 +2547,14 @@ app.get('/api/config-filtro-estudios',  async (req,res)=>{
             WHERE
               mc.id_cli = ? AND
               m.activo = 1`
-      let medicos = await retornar_query(query_medicos,[id_cli]);
+    let medicos = await retornar_query(query_medicos, [id_cli]);
 
-    return res.json({ success: true,
-                        medicos: medicos });
-  }else{
-    let query =`
+    return res.json({
+      success: true,
+      medicos: medicos
+    });
+  } else {
+    let query = `
     SELECT
       e.id_estudio,
       e.descripcion,
@@ -2521,48 +2568,52 @@ app.get('/api/config-filtro-estudios',  async (req,res)=>{
       epm.id_medico = ? AND
       epm.id_cli = ?`
 
-    let result = await retornar_query(query,[id_medico, id_cli]);
-  
-    return res.json({ success: true,
-                        result: result });
-                       
+    let result = await retornar_query(query, [id_medico, id_cli]);
+
+    return res.json({
+      success: true,
+      result: result
+    });
+
   }
 })
-app.delete('/api/config-filtro-estudios', authenticateToken, async (req,res)=>{
+app.delete('/api/config-filtro-estudios', authenticateToken, async (req, res) => {
   const { id_epm } = req.query;
-  if (!id_epm ) {
+  if (!id_epm) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
-  if (isNaN(id_epm) ) {
+  if (isNaN(id_epm)) {
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
- 
-    let query =`
+
+  let query = `
     DELETE FROM 
       estudios_por_medicos
     WHERE
       id  = ?`
 
-    let result = await retornar_query(query,[id_epm]);
-  
-    return res.json({ success: true,
-                        result: result });
-                       
+  let result = await retornar_query(query, [id_epm]);
+
+  return res.json({
+    success: true,
+    result: result
+  });
+
 
 })
 
-app.post('/api/planes', authenticateToken, async (req,res)=>{
+app.post('/api/planes', authenticateToken, async (req, res) => {
   const { id_medico, id_crear, modo } = req.body;
-  
-  if (!id_medico ) {
+
+  if (!id_medico) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
 
-  if (isNaN(id_medico) ||isNaN(id_crear) ) {
+  if (isNaN(id_medico) || isNaN(id_crear)) {
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
 
-  let query ="";
+  let query = "";
   switch (modo) {
     case 'estudio':
       query = `
@@ -2590,31 +2641,35 @@ app.post('/api/planes', authenticateToken, async (req,res)=>{
       break;
     default:
       return res.json({ error: 'modo inválido.' });
-    }
-     
-try {
-  let restriccion = await retornar_query(query,[id_crear]);
-      return res.json({ success: true,
-                        result: restriccion });
+  }
 
-} catch (error) {
-registrarErrorPeticion(req, error)
-  return res.json({ success: false,
-                        result: error });
-}
+  try {
+    let restriccion = await retornar_query(query, [id_crear]);
+    return res.json({
+      success: true,
+      result: restriccion
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      result: error
+    });
+  }
 })
 
-app.patch('/api/config-filtro-estudios', authenticateToken, async (req,res)=>{
+app.patch('/api/config-filtro-estudios', authenticateToken, async (req, res) => {
   const { ident, dia, activo } = req.body;
-  
-  if (!ident ) {
+
+  if (!ident) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
-  if (isNaN(ident) ||isNaN(dia) ||isNaN(activo) ) {
+  if (isNaN(ident) || isNaN(dia) || isNaN(activo)) {
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
 
-  let dia_query ="";
+  let dia_query = "";
   switch (Number(dia)) {
     case 0:
       dia_query = 'dom';
@@ -2641,24 +2696,28 @@ app.patch('/api/config-filtro-estudios', authenticateToken, async (req,res)=>{
       return res.json({ error: 'Día inválido.' });
   }
 
-     let query = 
-            `UPDATE 
+  let query =
+    `UPDATE 
               estudios_por_medicos
             SET 
               ${dia_query} = ?
             WHERE
               id = ?`
-try {
-  let medicos = await retornar_query(query,[activo, ident]);
-      return res.json({ success: true,
-                        medicos: medicos });
+  try {
+    let medicos = await retornar_query(query, [activo, ident]);
+    return res.json({
+      success: true,
+      medicos: medicos
+    });
 
-} catch (error) {
-registrarErrorPeticion(req, error)
-  return res.json({ success: false,
-                        medicos: error });
-}
-      
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      medicos: error
+    });
+  }
+
 
 
 
@@ -2666,18 +2725,18 @@ registrarErrorPeticion(req, error)
 
 })
 
-app.post('/api/config-filtro-estudios', authenticateToken, async (req,res)=>{
+app.post('/api/config-filtro-estudios', authenticateToken, async (req, res) => {
   const { id_medico, id_crear, modo } = req.body;
-  
-  if (!id_medico ) {
+
+  if (!id_medico) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
 
-  if (isNaN(id_medico) ||isNaN(id_crear) ) {
+  if (isNaN(id_medico) || isNaN(id_crear)) {
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
 
-  let query ="";
+  let query = "";
   switch (modo) {
     case 'estudio':
       query = `
@@ -2705,19 +2764,23 @@ app.post('/api/config-filtro-estudios', authenticateToken, async (req,res)=>{
       break;
     default:
       return res.json({ error: 'modo inválido.' });
-    }
-     
-try {
-  let restriccion = await retornar_query(query,[id_crear]);
-      return res.json({ success: true,
-                        result: restriccion });
+  }
 
-} catch (error) {
-registrarErrorPeticion(req, error)
-  return res.json({ success: false,
-                        result: error });
-}
-      
+  try {
+    let restriccion = await retornar_query(query, [id_crear]);
+    return res.json({
+      success: true,
+      result: restriccion
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      result: error
+    });
+  }
+
 
 
 
@@ -2725,10 +2788,10 @@ registrarErrorPeticion(req, error)
 
 })
 
-app.post('/api/admisiones_abrir', authenticateToken, async (req,res)=>{
+app.post('/api/admisiones_abrir', authenticateToken, async (req, res) => {
   const { id_admision } = req.body;
-  
-  if (!id_admision ) {
+
+  if (!id_admision) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
 
@@ -2736,7 +2799,7 @@ app.post('/api/admisiones_abrir', authenticateToken, async (req,res)=>{
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
 
-  let query =`UPDATE admisiones 
+  let query = `UPDATE admisiones 
               SET 
                 id_status_cierre=1, 
                 motivo_cierre=NULL, 
@@ -2747,18 +2810,22 @@ app.post('/api/admisiones_abrir', authenticateToken, async (req,res)=>{
               WHERE 
                 id_admision=?
       `;
-     
-try {
-  let abrir = await retornar_query(query,[id_admision]);
-      return res.json({ success: true,
-                        result: abrir });
 
-} catch (error) {
-registrarErrorPeticion(req, error)
-  return res.json({ success: false,
-                        result: error });
-}
-      
+  try {
+    let abrir = await retornar_query(query, [id_admision]);
+    return res.json({
+      success: true,
+      result: abrir
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      result: error
+    });
+  }
+
 
 
 
@@ -2771,7 +2838,7 @@ async function verificar_stocks(tipo, id, zona) {
   let query = '';
   switch (tipo) {
     case 'med':
-        query = `
+      query = `
           SELECT     
             sum(cantidad) AS cantidad
           FROM
@@ -2785,60 +2852,60 @@ async function verificar_stocks(tipo, id, zona) {
                 almacenes_consultorio 
               where id_consultorio =?)
           `;
-          break;
-  
+      break;
+
     default:
       break;
   }
 
-    const params = [ id,
-      zona];
-    try {
-      const result = await retornar_query(query, params);
-      return result
-    } catch (error) {
-      return error
-    }    
+  const params = [id,
+    zona];
+  try {
+    const result = await retornar_query(query, params);
+    return result
+  } catch (error) {
+    return error
+  }
 }
 
-app.get('/api/verificar-stock-medicamento',  async (req,res)=>{
-    const { id_medicamento,id_consultorio, tarifa  } = req.query;
+app.get('/api/verificar-stock-medicamento', async (req, res) => {
+  const { id_medicamento, id_consultorio, tarifa } = req.query;
 
-    // Validar que los parámetros sean numéricos
-    if (!id_consultorio || isNaN(id_consultorio)) {
-      return res.status(400).json({ error: 'El parámetro consultorio esta mal formateado.' });
-    }
-    if (!id_medicamento || isNaN(id_medicamento)) {
-      return res.status(400).json({ error: 'El parámetro medicamento esta mal formateado.' });
-    }
+  // Validar que los parámetros sean numéricos
+  if (!id_consultorio || isNaN(id_consultorio)) {
+    return res.status(400).json({ error: 'El parámetro consultorio esta mal formateado.' });
+  }
+  if (!id_medicamento || isNaN(id_medicamento)) {
+    return res.status(400).json({ error: 'El parámetro medicamento esta mal formateado.' });
+  }
 
-    let resultado = await verificar_stocks('med',id_medicamento,id_consultorio)
+  let resultado = await verificar_stocks('med', id_medicamento, id_consultorio)
 
-    let cantidad = resultado[0]?.cantidad ?? 0
+  let cantidad = resultado[0]?.cantidad ?? 0
 
-    if(cantidad==0){
-      return res.json({ success: true, stock: cantidad, precio:  0  });
-    }
+  if (cantidad == 0) {
+    return res.json({ success: true, stock: cantidad, precio: 0 });
+  }
 
-    switch (tarifa) {
-      case "P":
-        tipo = "1";
-        break;
-      case "S":
-        tipo = "2";
-        break;
-      case "E":
-        tipo = "3";
-        break;
-      case "I":
-        tipo = "4";
-        break;
-      default:
-        tipo = "1";
-        break;
-    }
+  switch (tarifa) {
+    case "P":
+      tipo = "1";
+      break;
+    case "S":
+      tipo = "2";
+      break;
+    case "E":
+      tipo = "3";
+      break;
+    case "I":
+      tipo = "4";
+      break;
+    default:
+      tipo = "1";
+      break;
+  }
 
-    let query = `
+  let query = `
     SELECT
      precio
     FROM
@@ -2847,12 +2914,12 @@ app.get('/api/verificar-stock-medicamento',  async (req,res)=>{
       id_estudio=? and id_tarifa=? and activo=1
     `
 
-    let precio = await retornar_query(query,[id_medicamento,tipo])
+  let precio = await retornar_query(query, [id_medicamento, tipo])
 
-    res.json({ success: true, stock: cantidad, precio: precio[0]?.precio ?? 0  });      
+  res.json({ success: true, stock: cantidad, precio: precio[0]?.precio ?? 0 });
 })
 
-app.put('/api/mobile/cambiar-foto-perfil',   (req, res, next) => {
+app.put('/api/mobile/cambiar-foto-perfil', (req, res, next) => {
   upload.single('foto')(req, res, (err) => {
     if (err instanceof multer.MulterError && err.code === 'LIMIT_UNEXPECTED_FILE') {
       return res.status(400).json({ error: 'Campo de archivo inesperado' });
@@ -2889,13 +2956,13 @@ app.put('/api/mobile/cambiar-foto-perfil',   (req, res, next) => {
 
     // Guardar la imagen en disco (ejemplo)
     const uploadPath = path.resolve(__dirname, 'uploads', `${username}-perfil.jpg`);
-    
+
     fs.writeFileSync(uploadPath, optimizedImageBuffer);
 
     let query = `
     UPDATE usuarios SET foto=? WHERE usuario=?
     `
-    let result = await retornar_query(query,[`${username}-perfil.jpg`, username])
+    let result = await retornar_query(query, [`${username}-perfil.jpg`, username])
 
     res.json({
       message: 'Foto de perfil actualizada correctamente',
@@ -2904,20 +2971,20 @@ app.put('/api/mobile/cambiar-foto-perfil',   (req, res, next) => {
     });
 
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
     res.status(500).json({ error: error.message || 'Error al procesar la imagen' });
   }
 });
 
-app.get('/api/mobile/citas-medico', authenticateToken, async (req,res)=>{
-    const { id_medico  } = req.query;
-    // Validar que los parámetros sean numéricos
-    if (!id_medico || isNaN(id_medico)) {
-      return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
-    }
-    
-    let query = `
+app.get('/api/mobile/citas-medico', authenticateToken, async (req, res) => {
+  const { id_medico } = req.query;
+  // Validar que los parámetros sean numéricos
+  if (!id_medico || isNaN(id_medico)) {
+    return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
+  }
+
+  let query = `
     SELECT
      c.id_calendario as id,
      c.start as time,
@@ -2947,31 +3014,31 @@ app.get('/api/mobile/citas-medico', authenticateToken, async (req,res)=>{
       AND c.activo = 1 
       AND c.tipo_consulta NOT IN ('B', 'L')
     `
-    let agrupador = `
+  let agrupador = `
     GROUP BY
     	c.id_calendario, c.start, c.end, c.title, c.tipo_consulta,
       pub.apellidos, c.status_ag, p.telef1
     `
 
-    let today = await retornar_query(`${query} AND DATE(c.start) = CURDATE() ${agrupador} ORDER BY c.start ASC ` ,[id_medico])
-    let upcoming = await retornar_query(`${query} AND DATE(c.start) > CURDATE() ${agrupador} ORDER BY c.start ASC ` ,[id_medico])
-    let past = await retornar_query(`${query} AND DATE(c.start) < CURDATE() ${agrupador} ORDER BY c.start DESC LIMIT 50  ` ,[id_medico])
-    const pastCount = Array.isArray(past) ? past.length : 0;
-    const actualCount = Array.isArray(today) ? today.length : 0;
-    const futureCount = Array.isArray(upcoming) ? upcoming.length : 0;
-    res.json({ success: true,actualCount, today, futureCount,upcoming,pastCount, past });      
+  let today = await retornar_query(`${query} AND DATE(c.start) = CURDATE() ${agrupador} ORDER BY c.start ASC `, [id_medico])
+  let upcoming = await retornar_query(`${query} AND DATE(c.start) > CURDATE() ${agrupador} ORDER BY c.start ASC `, [id_medico])
+  let past = await retornar_query(`${query} AND DATE(c.start) < CURDATE() ${agrupador} ORDER BY c.start DESC LIMIT 50  `, [id_medico])
+  const pastCount = Array.isArray(past) ? past.length : 0;
+  const actualCount = Array.isArray(today) ? today.length : 0;
+  const futureCount = Array.isArray(upcoming) ? upcoming.length : 0;
+  res.json({ success: true, actualCount, today, futureCount, upcoming, pastCount, past });
 })
 
-app.delete('/api/mobile/cita',authenticateToken, async (req,res)=>{
+app.delete('/api/mobile/cita', authenticateToken, async (req, res) => {
   const { id } = req.query;
-  if (!id ) {
+  if (!id) {
     return res.json({ error: 'Todos los parámetros son requeridos.' });
   }
-  if (isNaN(id) ) {
+  if (isNaN(id)) {
     return res.json({ error: 'Todos los parámetros deben ser numéricos.' });
   }
- 
-    let query =`
+
+  let query = `
     UPDATE calendarios 
     SET 
       activo=0,
@@ -2980,26 +3047,30 @@ app.delete('/api/mobile/cita',authenticateToken, async (req,res)=>{
       color='#000000'
     WHERE
       id_calendario  = ?`
-    try {
-      let result = await retornar_query(query,[id]);
-  
-      return res.json({ success: true,
-                          result: result });
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      return res.json({ success: false,
-                          message: error });
-    }
+  try {
+    let result = await retornar_query(query, [id]);
+
+    return res.json({
+      success: true,
+      result: result
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      message: error
+    });
+  }
 })
 
-app.get('/api/mobile/clinicas_med', authenticateToken, async (req,res)=>{
-    const { id_medico  } = req.query;
-    // Validar que los parámetros sean numéricos
-    if (!id_medico || isNaN(id_medico)) {
-      return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
-    }
-    
-    let query = `
+app.get('/api/mobile/clinicas_med', authenticateToken, async (req, res) => {
+  const { id_medico } = req.query;
+  // Validar que los parámetros sean numéricos
+  if (!id_medico || isNaN(id_medico)) {
+    return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
+  }
+
+  let query = `
     select  
       mc.id_med, 
       mc.id_cli, 
@@ -3011,91 +3082,93 @@ app.get('/api/mobile/clinicas_med', authenticateToken, async (req,res)=>{
       perfil_usuario_empresa pue ON pue.id_usuario_empresa=mc.id_cli 
     WHERE mc.id_med = ?
     `
-    try {
-      let clinicas = await retornar_query(query,[id_medico])
-      res.json({ success: true,clinicas });      
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,error });
-    }
-      
-})
-app.patch('/api/estudios-metodo-procesamiento',  async (req, res) => {
-  
-  const result = req.query;
-  
-  if (isNaN(result.id_estudio) || isNaN(result.id_metodo)) {
-    return res.status(400).json({ error: 'AEM01',result }); 
+  try {
+    let clinicas = await retornar_query(query, [id_medico])
+    res.json({ success: true, clinicas });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({ success: false, error });
   }
- 
+
+})
+app.patch('/api/estudios-metodo-procesamiento', async (req, res) => {
+
+  const result = req.query;
+
+  if (isNaN(result.id_estudio) || isNaN(result.id_metodo)) {
+    return res.status(400).json({ error: 'AEM01', result });
+  }
+
   let query = `SELECT id FROM estudios_metodos_procesamiento
                   WHERE id_estudio=?`;
-try {
- 
-  let id_metodo = await retornar_query(quer, [result.id_estudio]);
-  
-  if(id_metodo.error){
-    query_estudios_muestras = 
-      `INSERT INTO 
+  try {
+
+    let id_metodo = await retornar_query(quer, [result.id_estudio]);
+
+    if (id_metodo.error) {
+      query_estudios_muestras =
+        `INSERT INTO 
         estudios_metodos_procesamiento (id_metodo, id_estudio, activo) 
       VALUES (?,?, 1)`;
-    id_metodo = await retornar_query(query_estudios_muestras, [result.id_metodo, result.id_estudio]);
-    if(id_metodo.error){
-      res.status(500).json({ error: 'AEM02' }); //Error al insertar la muestra
-      return
-    }   
-    res.json({ 
-      metodo: 'insertar',
-      Muestra: id_metodo.insertId }); 
-  }else{
-    query_estudios_muestras = 
-      `UPDATE estudios_metodos_procesamiento SET id_metodo=?, activo=1 
+      id_metodo = await retornar_query(query_estudios_muestras, [result.id_metodo, result.id_estudio]);
+      if (id_metodo.error) {
+        res.status(500).json({ error: 'AEM02' }); //Error al insertar la muestra
+        return
+      }
+      res.json({
+        metodo: 'insertar',
+        Muestra: id_metodo.insertId
+      });
+    } else {
+      query_estudios_muestras =
+        `UPDATE estudios_metodos_procesamiento SET id_metodo=?, activo=1 
       WHERE id_estudio=?`;
-    id_metodo = await retornar_query(query_estudios_muestras, [result.id_metodo, result.id_estudio ]);
-    if(id_metodo.error){
-      res.status(500).json({ error: 'AEM03' }); //Error al actualizar la muestra
-      return
-    }    
-    res.json({ 
-      metodo: 'actualizar',
-      Muestra: id_metodo.affectedRows }); 
-  }
+      id_metodo = await retornar_query(query_estudios_muestras, [result.id_metodo, result.id_estudio]);
+      if (id_metodo.error) {
+        res.status(500).json({ error: 'AEM03' }); //Error al actualizar la muestra
+        return
+      }
+      res.json({
+        metodo: 'actualizar',
+        Muestra: id_metodo.affectedRows
+      });
+    }
 
-  
-} catch (error) {    
-  registrarErrorPeticion(req, error);
-  res.status(500).json({ error: error });
-  return
-}
+
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    res.status(500).json({ error: error });
+    return
+  }
 });
 
-app.post('/api/mobile/crear-cita', authenticateToken,  async (req, res) => {
+app.post('/api/mobile/crear-cita', authenticateToken, async (req, res) => {
   const result = await registrarCita(req.body);
-  
-  if (result.error ){
-    return res.status(422).json({error: JSON.parse(result.error.message)})
+
+  if (result.error) {
+    return res.status(422).json({ error: JSON.parse(result.error.message) })
   }
   const filtros = { ...result.data }
 
-  let query_ti ='';
-  let filtros_t ='';
+  let query_ti = '';
+  let filtros_t = '';
 
   switch (req.body.tipo_consulta) {
     case 'P':
       break;
-    case 'I':       
+    case 'I':
       break;
     case 'S':
-      query_ti='id_seguro,'
-      filtros_t=req.body.tipo_sel + ','
+      query_ti = 'id_seguro,'
+      filtros_t = req.body.tipo_sel + ','
       break;
     case 'E':
-      query_ti='id_empresa,'
-      filtros_t=req.body.tipo_sel + ','
+      query_ti = 'id_empresa,'
+      filtros_t = req.body.tipo_sel + ','
       break;
     default:
-      return res.json({error: `No se envio el tipo de admision correctamente: ${req.body.tipo_consulta}`})
-      
+      return res.json({ error: `No se envio el tipo de admision correctamente: ${req.body.tipo_consulta}` })
+
   }
 
   let query_pac = `INSERT INTO calendarios
@@ -3112,53 +3185,56 @@ app.post('/api/mobile/crear-cita', authenticateToken,  async (req, res) => {
                       ${query_ti}
                       end, id_usuario_crea,id_usuario_modif)                     
                   VALUES (?,'#198754','Agendado','#ffc107',?,?,?,?,?,?,${filtros_t} ?,?,?)`;
-try {
-  
-  let cita = await retornar_query(query_pac, [req.body.tipo_consulta, filtros.id_cli, filtros.title, 
-      filtros.nota, filtros.id_paciente, filtros.id_med, filtros.fecha_inicio, filtros.fecha_fin, filtros.id_med, filtros.id_med]);
-   
- if(!isNaN(cita.insertId)){
-  let estudio = `INSERT INTO estudios_agenda (id_estudio, id_agenda) VALUES (?,?)`
-    estudio = await retornar_query(estudio,[req.body.estudios, cita.insertId ])
-  return res.json({ success: true,
-                    id_cita: cita.insertId,
-                    id_estudio: estudio.insertId,
-                   });
-  }      
-  
-  
-} catch (error) {
-registrarErrorPeticion(req, error)  
-  
-  res.json({ success: true,
-              error: error });
-  return
-}
+  try {
+
+    let cita = await retornar_query(query_pac, [req.body.tipo_consulta, filtros.id_cli, filtros.title,
+    filtros.nota, filtros.id_paciente, filtros.id_med, filtros.fecha_inicio, filtros.fecha_fin, filtros.id_med, filtros.id_med]);
+
+    if (!isNaN(cita.insertId)) {
+      let estudio = `INSERT INTO estudios_agenda (id_estudio, id_agenda) VALUES (?,?)`
+      estudio = await retornar_query(estudio, [req.body.estudios, cita.insertId])
+      return res.json({
+        success: true,
+        id_cita: cita.insertId,
+        id_estudio: estudio.insertId,
+      });
+    }
+
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+
+    res.json({
+      success: true,
+      error: error
+    });
+    return
+  }
 });
 
-app.get('/api/portal-med/notificaciones-med',  async (req, res) => {
-  const {id_med = 0, id_cli, page=1, perPage = 5  } = req.query;
+app.get('/api/portal-med/notificaciones-med', async (req, res) => {
+  const { id_med = 0, id_cli, page = 1, perPage = 5 } = req.query;
   const offset = (page - 1) * perPage;
-  if(isNaN(perPage)){
-    perPage =5
+  if (isNaN(perPage)) {
+    perPage = 5
   }
   if (!id_cli) {
     return res.status(400).json({ error: 'Falta el id en la consulta' });
   }
- 
-let query_ti = `SELECT * 
+
+  let query_ti = `SELECT * 
                       FROM notificaciones_med 
                       WHERE id_cli = ? AND activo=1
                       ORDER BY fecha DESC
                       LIMIT ${perPage} OFFSET ?`;
-let query_con = `SELECT count (*) as total
+  let query_con = `SELECT count (*) as total
                       FROM notificaciones_med 
                       WHERE id_cli = ? AND activo=1
                       ORDER BY fecha DESC`;
-try {
-  let confirmacion = 0
-  if(id_med!=0){
-    let query_conf = `
+  try {
+    let confirmacion = 0
+    if (id_med != 0) {
+      let query_conf = `
       SELECT 
         news_med
       FROM
@@ -3166,110 +3242,119 @@ try {
       WHERE
         id_especialista=?
     `;
-    confirmacion = await retornar_query(query_conf, [id_med]);
-    if(Number(confirmacion[0].news_med)===0){
-        return res.json({ success: true,
-                    mostrar:0})
+      confirmacion = await retornar_query(query_conf, [id_med]);
+      if (Number(confirmacion[0].news_med) === 0) {
+        return res.json({
+          success: true,
+          mostrar: 0
+        })
+      }
     }
-  }
 
-  let total = await retornar_query(query_con, [id_cli]);
+    let total = await retornar_query(query_con, [id_cli]);
 
-  if(total.error){
-    return res.json({ success: false, error: 'Error al obtener el total de notificaciones' });
-  }
-  if(Number(total[0].total)===0){
-    return res.json({ success: true, notificaciones: [], total: 0 });
-  }
+    if (total.error) {
+      return res.json({ success: false, error: 'Error al obtener el total de notificaciones' });
+    }
+    if (Number(total[0].total) === 0) {
+      return res.json({ success: true, notificaciones: [], total: 0 });
+    }
 
-  const total_notificaciones = Number(total[0].total) || 0;
-  const totalPages=  (Math.ceil(total_notificaciones / perPage)<=10)?Math.ceil(total_notificaciones / perPage):10;
+    const total_notificaciones = Number(total[0].total) || 0;
+    const totalPages = (Math.ceil(total_notificaciones / perPage) <= 10) ? Math.ceil(total_notificaciones / perPage) : 10;
 
-  let notificaciones = await retornar_query(query_ti, [id_cli, offset]);
-  let mostrar_news =1
-  if (id_med!=0 && confirmacion.length>0){
-    mostrar_news = Number(confirmacion[0].news_med)||1
+    let notificaciones = await retornar_query(query_ti, [id_cli, offset]);
+    let mostrar_news = 1
+    if (id_med != 0 && confirmacion.length > 0) {
+      mostrar_news = Number(confirmacion[0].news_med) || 1
+    }
+    return res.json({
+      success: true,
+      notificaciones,
+      mostrar: mostrar_news,
+      pagination: {
+        page,
+        perPage,
+        totalPages,
+        total_notificaciones
+      }
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error,
+      total: 0
+    });
+    return
   }
-  return res.json({ success: true,
-                    notificaciones,
-                    mostrar: mostrar_news,
-                    pagination: {
-                        page,
-                        perPage,
-                        totalPages,
-                        total_notificaciones
-                      }
-                   }); 
-  
-} catch (error) {
-registrarErrorPeticion(req, error)    
-  res.json({ success: false,
-              error: error,
-            total: 0 });
-  return
-}
 });
 
 app.put('/api/portal-med/mostrar-notificaciones-med', authenticateToken, async (req, res) => {
-  const {id_usr, mostrar } = req.query;
+  const { id_usr, mostrar } = req.query;
 
   if (!id_usr) {
     return res.status(400).json({ error: 'Falta el id en la consulta' });
   }
-if (mostrar !== '0' && mostrar !== '1' && mostrar !== 0 && mostrar !== 1) {
-  return res.status(400).json({ error: 'El parámetro mostrar debe ser 1 o 0' });
-}
-let query_ti = `UPDATE
+  if (mostrar !== '0' && mostrar !== '1' && mostrar !== 0 && mostrar !== 1) {
+    return res.status(400).json({ error: 'El parámetro mostrar debe ser 1 o 0' });
+  }
+  let query_ti = `UPDATE
                   perfil_usuario_basico
                 SET
                   news_med =?
                 WHERE id_usuario = ?`;
-try {
+  try {
 
-  let result = await retornar_query(query_ti, [mostrar, id_usr]);
-  
-  return res.json({ success: true,
-                    result,
-                   });
+    let result = await retornar_query(query_ti, [mostrar, id_usr]);
+
+    return res.json({
+      success: true,
+      result,
+    });
   } catch (error) {
-registrarErrorPeticion(req, error)
-    res.json({ success: false,
-                error: error,
-                mostrar, id_usr
-   });
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error,
+      mostrar, id_usr
+    });
     return
-}
+  }
 });
 
 app.delete('/api/portal-med/notificaciones-med', authenticateToken, async (req, res) => {
-  const {id_notif } = req.query;
+  const { id_notif } = req.query;
 
   if (!id_notif) {
     return res.status(400).json({ error: 'Falta el id en la consulta' });
   }
 
-let query_ti = `DELETE FROM
+  let query_ti = `DELETE FROM
                   notificaciones_med
                 WHERE id = ?`;
-try {
+  try {
 
-  let result = await retornar_query(query_ti, [id_notif]);
-  
-  return res.json({ success: true,
-                    result,
-                   });
+    let result = await retornar_query(query_ti, [id_notif]);
+
+    return res.json({
+      success: true,
+      result,
+    });
   } catch (error) {
-registrarErrorPeticion(req, error)
-    res.json({ success: false,
-                error: error,
-                id_notif
-   });
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error,
+      id_notif
+    });
     return
-}
+  }
 });
 
 app.post('/api/portal-med/notificaciones-med', authenticateToken, async (req, res) => {
-  const {notificacion, id_cli } = req.body;
+  const { notificacion, id_cli } = req.body;
 
   if (!id_cli) {
     return res.status(400).json({ error: 'Falta el id en la consulta' });
@@ -3289,18 +3374,20 @@ app.post('/api/portal-med/notificaciones-med', authenticateToken, async (req, re
 
     let result = await retornar_query(query_ti, [notificacion, id_cli]);
 
-    return res.json({ success: true,
-                      result,
-                    });
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,
-                  error: error                
+    return res.json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
     });
   }
 });
 app.patch('/api/agendas/reprogramar', authenticateToken, async (req, res) => {
-  const {id_cal, start, end, usuario, motivo=3 } = req.body;
+  const { id_cal, start, end, usuario, motivo = 3 } = req.body;
 
   if (!id_cal) {
     return res.status(400).json({ error: 'Falta el id en la consulta' });
@@ -3314,24 +3401,26 @@ app.patch('/api/agendas/reprogramar', authenticateToken, async (req, res) => {
                 WHERE id_calendario = ?`;
   try {
 
-  let result = await retornar_query(query, [ start, end, usuario, motivo, usuario, id_cal]);
+    let result = await retornar_query(query, [start, end, usuario, motivo, usuario, id_cal]);
 
-  return res.json({ success: true,
-                    result,
-                   });
+    return res.json({
+      success: true,
+      result,
+    });
   } catch (error) {
-registrarErrorPeticion(req, error)
-    res.json({ success: false,
-                error: error                
-   });
-}
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
+    });
+  }
 });
-app.post('/api/agendas/reporte_status',  async (req, res) => {
-    const { fecha_inicio, fecha_fin, id_medico, id_cli } = req.body;
-      if (!fecha_inicio || !fecha_fin) {
-        return res.status(400).json({ error: 'Fechas de inicio y fin son requeridas' });
-      }
-      let query_consulta = `
+app.post('/api/agendas/reporte_status', async (req, res) => {
+  const { fecha_inicio, fecha_fin, id_medico, id_cli } = req.body;
+  if (!fecha_inicio || !fecha_fin) {
+    return res.status(400).json({ error: 'Fechas de inicio y fin son requeridas' });
+  }
+  let query_consulta = `
               SELECT
                 c.id_calendario,
                 CONCAT(p.nombres, ' ', p.apellidos) AS paciente,
@@ -3358,7 +3447,7 @@ app.post('/api/agendas/reporte_status',  async (req, res) => {
             GROUP BY c.id_calendario
             ORDER BY c.start
       `
-      let query_resumen_motivo = `
+  let query_resumen_motivo = `
             SELECT
               CASE 
                   WHEN c.motivo_reag IS NULL THEN 'No reprogramada'
@@ -3373,7 +3462,7 @@ app.post('/api/agendas/reporte_status',  async (req, res) => {
               AND (? IS NULL OR c.id_medico = ?)
               AND c.id_cli = ?
           GROUP BY motivo_reprogramacion;`
-      let query_resumen_status = `
+  let query_resumen_status = `
           SELECT
               c.status_ag,
               COUNT(*) AS cantidad
@@ -3382,50 +3471,50 @@ app.post('/api/agendas/reporte_status',  async (req, res) => {
               AND (? IS NULL OR c.id_medico = ?)
               AND c.id_cli = ?
           GROUP BY c.status_ag;`;
-      try {
-  const detallesRaw = await retornar_query(query_consulta, [fecha_inicio, fecha_fin, id_medico, id_medico, id_cli]);
-  const resumenStatusRaw = await retornar_query(query_resumen_status, [fecha_inicio, fecha_fin, id_medico, id_medico, id_cli]);
-  const resumenMotivoRaw = await retornar_query(query_resumen_motivo, [fecha_inicio, fecha_fin, id_medico, id_medico, id_cli]);
+  try {
+    const detallesRaw = await retornar_query(query_consulta, [fecha_inicio, fecha_fin, id_medico, id_medico, id_cli]);
+    const resumenStatusRaw = await retornar_query(query_resumen_status, [fecha_inicio, fecha_fin, id_medico, id_medico, id_cli]);
+    const resumenMotivoRaw = await retornar_query(query_resumen_motivo, [fecha_inicio, fecha_fin, id_medico, id_medico, id_cli]);
 
-  const detalles = Array.isArray(detallesRaw) ? detallesRaw : [];
-  const resumenStatus = Array.isArray(resumenStatusRaw) ? resumenStatusRaw : [];
-  const resumenMotivo = Array.isArray(resumenMotivoRaw) ? resumenMotivoRaw : [];
+    const detalles = Array.isArray(detallesRaw) ? detallesRaw : [];
+    const resumenStatus = Array.isArray(resumenStatusRaw) ? resumenStatusRaw : [];
+    const resumenMotivo = Array.isArray(resumenMotivoRaw) ? resumenMotivoRaw : [];
 
-  // Resumen por status_ag (ya viene como texto legible)
-  const statusAgrupado = resumenStatus.reduce((acc, item) => {
-    acc[item.status_ag] = item.cantidad;
-    return acc;
-  }, {});
+    // Resumen por status_ag (ya viene como texto legible)
+    const statusAgrupado = resumenStatus.reduce((acc, item) => {
+      acc[item.status_ag] = item.cantidad;
+      return acc;
+    }, {});
 
-  // Resumen por motivo_reag
-  const motivoAgrupado = resumenMotivo.reduce((acc, item) => {
-    acc[item.motivo_reprogramacion] = item.cantidad;
-    return acc;
-  }, {});
+    // Resumen por motivo_reag
+    const motivoAgrupado = resumenMotivo.reduce((acc, item) => {
+      acc[item.motivo_reprogramacion] = item.cantidad;
+      return acc;
+    }, {});
 
-  res.json({
-    detalle: detalles,
-    resumen: {
-      status_ag: statusAgrupado,
-      motivo_reag: motivoAgrupado
-    }
-  });
+    res.json({
+      detalle: detalles,
+      resumen: {
+        status_ag: statusAgrupado,
+        motivo_reag: motivoAgrupado
+      }
+    });
 
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 })
 
-app.get('/api/mobile/perfil-medico',  async (req,res)=>{
-    const { id_medico  } = req.query;
-    // Validar que los parámetros sean numéricos
-    if (!id_medico || isNaN(id_medico)) {
-      return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
-    }
-    
-    let query = `SELECT
+app.get('/api/mobile/perfil-medico', async (req, res) => {
+  const { id_medico } = req.query;
+  // Validar que los parámetros sean numéricos
+  if (!id_medico || isNaN(id_medico)) {
+    return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
+  }
+
+  let query = `SELECT
     m.nombre AS nombres,
     m.apellido AS apellidos,
     m.titulo,
@@ -3443,81 +3532,89 @@ LEFT JOIN med_esp me ON me.id_medico = m.id_medico
 LEFT JOIN especialidades e ON e.id_especialidad = me.id_especialidad
 WHERE m.id_medico = ?
 GROUP BY
-    m.id_medico, m.nombre, m.apellido, m.titulo, m.cedula_p, m.cedula, m.telefono, m.sexo;` 
+    m.id_medico, m.nombre, m.apellido, m.titulo, m.cedula_p, m.cedula, m.telefono, m.sexo;`
 
-    try {
-      let perfil = await retornar_query(query,[id_medico])
-    
-      res.json({ success: true,
-                perfil});    
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,
-                error: error})    
-    }
-      
+  try {
+    let perfil = await retornar_query(query, [id_medico])
+
+    res.json({
+      success: true,
+      perfil
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
+    })
+  }
+
 })
 
-app.patch('/api/mobile/perfil-medico', authenticateToken,  async (req,res)=>{
-    const { id_medico, campo, data  } = req.query;
-    // Validar que los parámetros sean numéricos
-    if (!id_medico || isNaN(id_medico)) {
-      return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
-    }
-    
-    const camposPermitidos = [
-      "nombres",
-      "apellidos",
-      "titulo",
-      "cedula_profesional",
-      "cedula",
-      "telefono",
-      "sexo"
-    ];
+app.patch('/api/mobile/perfil-medico', authenticateToken, async (req, res) => {
+  const { id_medico, campo, data } = req.query;
+  // Validar que los parámetros sean numéricos
+  if (!id_medico || isNaN(id_medico)) {
+    return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
+  }
 
-    if (!campo || !camposPermitidos.includes(campo)) {
-      return res.status(400).json({ error: 'Campo no permitido.' });
-    }
+  const camposPermitidos = [
+    "nombres",
+    "apellidos",
+    "titulo",
+    "cedula_profesional",
+    "cedula",
+    "telefono",
+    "sexo"
+  ];
 
-    let campoBD = campo === "cedula_profesional" ? "cedula_p" : campo;
+  if (!campo || !camposPermitidos.includes(campo)) {
+    return res.status(400).json({ error: 'Campo no permitido.' });
+  }
 
-    let queryUpdate = `UPDATE medicos SET ${campoBD} = ? WHERE id_medico = ?`;
+  let campoBD = campo === "cedula_profesional" ? "cedula_p" : campo;
 
-    try {
-      await retornar_query(queryUpdate, [String(data).toUpperCase(), id_medico]);
-      res.json({ success: true,
-                queryUpdate});
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,
-                error: error}) 
-    }      
+  let queryUpdate = `UPDATE medicos SET ${campoBD} = ? WHERE id_medico = ?`;
+
+  try {
+    await retornar_query(queryUpdate, [String(data).toUpperCase(), id_medico]);
+    res.json({
+      success: true,
+      queryUpdate
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
+    })
+  }
 })
 
-app.get('/api/mobile/pacientes-medico', authenticateToken, async (req,res)=>{
-    const { id_medico, page = 1, perPage = 5, cedula, paciente  } = req.query;
-    const offset = (page - 1) * perPage;
-    // Validar que los parámetros sean numéricos
-    if (!id_medico || isNaN(id_medico)) {
-      return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
-    }
-    
-    // Construir condiciones dinámicamente según los parámetros opcionales
-    let condiciones = ['ad.id_medico = ?'];
-    let params = [id_medico];
+app.get('/api/mobile/pacientes-medico', authenticateToken, async (req, res) => {
+  const { id_medico, page = 1, perPage = 5, cedula, paciente } = req.query;
+  const offset = (page - 1) * perPage;
+  // Validar que los parámetros sean numéricos
+  if (!id_medico || isNaN(id_medico)) {
+    return res.status(400).json({ error: 'El parámetro medico esta mal formateado.' });
+  }
 
-    if (cedula) {
-      condiciones.push('p.cedula LIKE ?');
-      params.push(`${cedula}%`);
-    }
-    if (paciente) {
-      condiciones.push('LOWER(CONCAT(p.nombres, " ", p.apellidos)) LIKE ?');
-      params.push(`%${paciente.toLowerCase()}%`);
-    }
+  // Construir condiciones dinámicamente según los parámetros opcionales
+  let condiciones = ['ad.id_medico = ?'];
+  let params = [id_medico];
 
-    let whereClause = condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : '';
+  if (cedula) {
+    condiciones.push('p.cedula LIKE ?');
+    params.push(`${cedula}%`);
+  }
+  if (paciente) {
+    condiciones.push('LOWER(CONCAT(p.nombres, " ", p.apellidos)) LIKE ?');
+    params.push(`%${paciente.toLowerCase()}%`);
+  }
 
-    let query = `SELECT 
+  let whereClause = condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : '';
+
+  let query = `SELECT 
         p.id_paciente,
         CONCAT (p.tipo_cedula, ' ',p.cedula) as cedula,
         CONCAT(p.nombres, ' ', p.apellidos) AS paciente,
@@ -3537,8 +3634,8 @@ app.get('/api/mobile/pacientes-medico', authenticateToken, async (req,res)=>{
       GROUP BY a.id_admision
       ORDER BY a.id_admision DESC
       LIMIT ${perPage} OFFSET ${offset};`;
-    
-    let query_total = `
+
+  let query_total = `
     SELECT COUNT(*) AS total
       FROM (
           SELECT a.id_admision
@@ -3549,47 +3646,51 @@ app.get('/api/mobile/pacientes-medico', authenticateToken, async (req,res)=>{
           GROUP BY a.id_admision
       ) AS subconsulta;   `
 
-    try {
-      
-      let pacientes = await retornar_query(query, params);    
-      
-      let total = await retornar_query(query_total, params);
-      
-      if(total.error){
-        return res.json({ success: false, error: 'Error al obtener el total' });
-      }
-      if(Number(total[0].total)===0){
-        return res.json({ success: true, pacientes: [], total: 0 });
-      }
+  try {
 
-      const total_pacientes = Number(total[0].total) || 0;
-      const totalPages=  Math.ceil(total_pacientes / perPage)
+    let pacientes = await retornar_query(query, params);
 
+    let total = await retornar_query(query_total, params);
 
-      res.json({ success: true,
-                pacientes,
-                pagination: {
-                          page,
-                          perPage,
-                          totalPages,
-                          total_pacientes
-                        }});    
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,
-                error: error})    
+    if (total.error) {
+      return res.json({ success: false, error: 'Error al obtener el total' });
     }
-      
+    if (Number(total[0].total) === 0) {
+      return res.json({ success: true, pacientes: [], total: 0 });
+    }
+
+    const total_pacientes = Number(total[0].total) || 0;
+    const totalPages = Math.ceil(total_pacientes / perPage)
+
+
+    res.json({
+      success: true,
+      pacientes,
+      pagination: {
+        page,
+        perPage,
+        totalPages,
+        total_pacientes
+      }
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
+    })
+  }
+
 })
 
-app.get('/api/mobile/pacientes-peso-talla', authenticateToken,  async (req,res)=>{
-    const { id_paciente } = req.query;
-   
-    if (!id_paciente || isNaN(id_paciente)) {
-      return res.status(400).json({ error: 'El parámetro paciente esta mal formateado.' });
-    }
-    
-    let query = `SELECT de.id_admision, 
+app.get('/api/mobile/pacientes-peso-talla', authenticateToken, async (req, res) => {
+  const { id_paciente } = req.query;
+
+  if (!id_paciente || isNaN(id_paciente)) {
+    return res.status(400).json({ error: 'El parámetro paciente esta mal formateado.' });
+  }
+
+  let query = `SELECT de.id_admision, 
                         de.peso, 
                         de.talla, 
                         de.presion, 
@@ -3605,33 +3706,39 @@ app.get('/api/mobile/pacientes-peso-talla', authenticateToken,  async (req,res)=
                         pacientes p on p.id_paciente = a.id_paciente 
                     WHERE 
                         p.id_paciente = ?;`;
-    
-    try {
-      
-      let pacientes_talla = await retornar_query(query, id_paciente);          
-      
-      if(!pacientes_talla.error){
-        return res.json({ success: true,
-                pacientes_talla,});    
-      }
-      res.json({ success: false,
-                pacientes_talla: [],}); 
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,
-                error: error})    
+
+  try {
+
+    let pacientes_talla = await retornar_query(query, id_paciente);
+
+    if (!pacientes_talla.error) {
+      return res.json({
+        success: true,
+        pacientes_talla,
+      });
     }
-      
+    res.json({
+      success: false,
+      pacientes_talla: [],
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
+    })
+  }
+
 })
 
-app.get('/api/mobile/resumen-consultas',   async (req,res)=>{
-    const { id_paciente } = req.query;
-   
-    if (!id_paciente || isNaN(id_paciente)) {
-      return res.status(400).json({ error: 'El parámetro paciente esta mal formateado.' });
-    }
-    
-    let query = `SELECT 
+app.get('/api/mobile/resumen-consultas', async (req, res) => {
+  const { id_paciente } = req.query;
+
+  if (!id_paciente || isNaN(id_paciente)) {
+    return res.status(400).json({ error: 'El parámetro paciente esta mal formateado.' });
+  }
+
+  let query = `SELECT 
                     c.id_consulta,
                     COALESCE(c.motivo, c.informe_manual) AS motivo_resultado,
                     c.fecha_creacion,
@@ -3645,23 +3752,29 @@ app.get('/api/mobile/resumen-consultas',   async (req,res)=>{
                     AND a.activo = 1
                 WHERE a.id_paciente = ? 
                 AND (c.motivo IS NOT NULL OR c.informe_manual IS NOT NULL)`;
-    
-    try {
-      
-      let resumen = await retornar_query(query, id_paciente);          
-      
-      if(!resumen.error){
-        return res.json({ success: true,
-                resumen,});    
-      }
-      res.json({ success: false,
-                resumen: [],}); 
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      res.json({ success: false,
-                error: error})    
+
+  try {
+
+    let resumen = await retornar_query(query, id_paciente);
+
+    if (!resumen.error) {
+      return res.json({
+        success: true,
+        resumen,
+      });
     }
-      
+    res.json({
+      success: false,
+      resumen: [],
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    res.json({
+      success: false,
+      error: error
+    })
+  }
+
 })
 
 app.post('/api/mobile/registrar-token-push', async (req, res) => {
@@ -3677,8 +3790,8 @@ app.post('/api/mobile/registrar-token-push', async (req, res) => {
     WHERE id_medico = ?
   `;
 
-let token_type = 'unknown';
-  
+  let token_type = 'unknown';
+
   if (typeof push_token === 'string') {
     if (push_token.startsWith('ExponentPushToken')) {
       token_type = 'expo';
@@ -3721,8 +3834,8 @@ let token_type = 'unknown';
     });
 
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
     res.status(500).json({ success: false, error });
   }
 });
@@ -3754,26 +3867,26 @@ app.get('/api/agenda/manejar-notificacion', async (req, res) => {
   try {
     const tokenData = await retornar_query(query_consulta, [id_medico]);
 
-    if (!tokenData || !tokenData.push_token) {
-      return res.json({ success: false, error: 'No hay token registrado' });
+    if (!tokenData || !tokenData[0].push_token) {
+      return res.json({ success: false, error: 'No hay token registrado', tokenData });
     }
 
     let url_logo = "https://siac.empresas.historiaclinica.org/"
     // logo = "../images/empresas/cenimat/logo_cenimat.webp"
-     if (logo) {
+    if (logo) {
       url_logo += logo.replace('../', '');
     }
-    const resultado = await enviarNotificacionOneSignal(tokenData.push_token, 
-      'Nueva cita asignada', 
+    const resultado = await enviarNotificacionOneSignal(tokenData[0].push_token,
+      'Nueva cita asignada',
       'Tienes una nueva cita en tu agenda.',
-      {tipo: 'nueva_cita', id_cal},
+      { tipo: 'nueva_cita', id_cal },
       url_logo
     );
 
     if (resultado && resultado.data) {
       const now = new Date();
       const year = now.getFullYear();
-      const month = (now.getMonth() + 1).toString().padStart(2, '0'); 
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
       const currentMonthYear = `${year}-${month}`;
 
       const checkQuery = `
@@ -3785,149 +3898,149 @@ app.get('/api/agenda/manejar-notificacion', async (req, res) => {
         const existingRecord = await retornar_query(checkQuery, [currentMonthYear, id_cli]);
 
         if (!existingRecord.error) {
-            const updateQuery = `
+          const updateQuery = `
               UPDATE notif_push_contadores 
               SET push_agenda = push_agenda + 1 
               WHERE id = ?
             `;
-            await retornar_query(updateQuery, [existingRecord[0].id]);
-          } else {
-            const insertQuery = `
+          await retornar_query(updateQuery, [existingRecord[0].id]);
+        } else {
+          const insertQuery = `
               INSERT INTO notif_push_contadores 
               (periodo, id_cli, push_agenda) 
               VALUES (?, ?, 1)
             `;
-            await retornar_query(insertQuery, [currentMonthYear, id_cli]);
-          }
+          await retornar_query(insertQuery, [currentMonthYear, id_cli]);
+        }
         return res.json({
           success: true,
           data: resultado.data
-          
+
         });
       } catch (error) {
-registrarErrorPeticion(req, error)
+        registrarErrorPeticion(req, error)
         return res.json({
-          errores:existingRecord
+          errores: existingRecord
         })
       }
-      
-      
+
+
     } else {
       return res.json({
         success: false,
         error: resultado?.error || 'No se pudo enviar la notificación',
-        resultado:resultado.data
+        resultado: resultado,
       });
     }
 
   } catch (error) {
-registrarErrorPeticion(req, error)    
+    registrarErrorPeticion(req, error)
     return res.status(500).json({ success: false, error: error });
   }
 });
 
-app.put('/api/agenda/evento', authenticateToken, async (req,res)=> {
-  const {id_evento, turno, status, tipoConsulta, id_admision} = req.query;
-  if (!id_evento ) {
+app.put('/api/agenda/evento', authenticateToken, async (req, res) => {
+  const { id_evento, turno, status, tipoConsulta, id_admision } = req.query;
+  if (!id_evento) {
     return res.status(400).json({ error: 'Campos evento es requerido' });
   }
   let query = ``;
-    if(turno){
-      query = `UPDATE
+  if (turno) {
+    query = `UPDATE
                 admisiones
               SET
                 turno=?
               WHERE  id_preadmision = ?`
-      let filtro = id_evento;
-      if(id_admision){
-        query = `UPDATE
+    let filtro = id_evento;
+    if (id_admision) {
+      query = `UPDATE
                 admisiones
               SET
                 turno=?
               WHERE  id_admision = ?`
-       filtro = id_admision;
-      }
-      try {
-          const respuesta = await retornar_query(query, [turno, filtro]);   
-          return res.json({
-            success:true,
-            datos:respuesta
-          });   
-      } catch (error) {
-registrarErrorPeticion(req, error)
-        return res.json({
-            success:false,
-            datos:respuesta
-          }); 
-      }
+      filtro = id_admision;
     }
-    let esCancelado=''
-    switch (tipoConsulta) {
-      case 'P':
-        esCancelado =", color='#0dbcf0' "
-        break;
-      case 'E':
-        esCancelado =", color='#f00ddf' "
-        break;
-      case 'I':
-        esCancelado =", color='#79ffe6' "
-        break;
-      case 'S':
-        esCancelado =", color='#30f00d' "
-        break;
-      default:
-        break;
+    try {
+      const respuesta = await retornar_query(query, [turno, filtro]);
+      return res.json({
+        success: true,
+        datos: respuesta
+      });
+    } catch (error) {
+      registrarErrorPeticion(req, error)
+      return res.json({
+        success: false,
+        datos: respuesta
+      });
     }
-    if(status=="Cancelado") {
-        esCancelado = ", activo=0, color='#000000' "
-    } 
-    query = `UPDATE
+  }
+  let esCancelado = ''
+  switch (tipoConsulta) {
+    case 'P':
+      esCancelado = ", color='#0dbcf0' "
+      break;
+    case 'E':
+      esCancelado = ", color='#f00ddf' "
+      break;
+    case 'I':
+      esCancelado = ", color='#79ffe6' "
+      break;
+    case 'S':
+      esCancelado = ", color='#30f00d' "
+      break;
+    default:
+      break;
+  }
+  if (status == "Cancelado") {
+    esCancelado = ", activo=0, color='#000000' "
+  }
+  query = `UPDATE
           calendarios
         SET
           status_ag=? ${esCancelado}
         WHERE  id_calendario = ?`
-      try {
-          const respuesta = await retornar_query(query, [status, id_evento]);   
-          return res.json({
-            success:true,
-            datos:respuesta
-          });   
-      } catch (error) {
-registrarErrorPeticion(req, error)
-        return res.json({
-            success:false,
-            datos:respuesta
-          }); 
-      }
+  try {
+    const respuesta = await retornar_query(query, [status, id_evento]);
+    return res.json({
+      success: true,
+      datos: respuesta
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      datos: respuesta
+    });
+  }
 })
 
-app.delete('/api/agenda/evento', authenticateToken, async (req,res)=> {
-  const {id_evento} = req.query;
-  if (!id_evento ) {
+app.delete('/api/agenda/evento', authenticateToken, async (req, res) => {
+  const { id_evento } = req.query;
+  if (!id_evento) {
     return res.status(400).json({ error: 'Campos evento es requerido' });
   }
   let query = ``;
-     
+
   query = `DELETE FROM
         calendarios
       WHERE  id_calendario = ?`
-    try {
-        const respuesta = await retornar_query(query, [id_evento]);   
-        return res.json({
-          success:true,
-          datos:respuesta
-        });   
-    } catch (error) {
-registrarErrorPeticion(req, error)
-      return res.json({
-          success:false,
-          datos:respuesta
-        }); 
-      }
+  try {
+    const respuesta = await retornar_query(query, [id_evento]);
+    return res.json({
+      success: true,
+      datos: respuesta
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      datos: respuesta
+    });
+  }
 })
 
-app.post('/api/opciones/main', authenticateToken, async (req,res)=> {
-  const { id_cli, refer} = req.body;
+app.post('/api/opciones/main', authenticateToken, async (req, res) => {
+  const { id_cli, refer } = req.body;
   if (!id_cli) {
     return res.status(400).json({ error: 'El campo id_cli es requerido' });
   }
@@ -3935,55 +4048,55 @@ app.post('/api/opciones/main', authenticateToken, async (req,res)=> {
   if (!refer || typeof refer !== 'string' || !/^[A-Z]{3}$/.test(refer)) {
     return res.status(400).json({ error: 'El campo refer debe ser un string de tres letras mayúsculas.' });
   }
-  
+
   let query = `UPDATE opt_main SET USD_EUR = ? WHERE id_cli = ?`;
   try {
-      const respuesta_actualizar = await retornar_query(query, [refer, id_cli]); 
-      return res.json({
-        success:true,
-        actualizar:respuesta_actualizar
-      });    
-  } catch (error) {
-registrarErrorPeticion(req, error)
+    const respuesta_actualizar = await retornar_query(query, [refer, id_cli]);
     return res.json({
-        success:false,
-        datos:error
-      }); 
-    }
+      success: true,
+      actualizar: respuesta_actualizar
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
 })
 
-app.get('/api/opciones/almacenes',  async (req,res)=> {
+app.get('/api/opciones/almacenes', async (req, res) => {
   const { id_cli } = req.query;
   if (!id_cli) {
     return res.status(400).json({ error: 'El campo id_cli es requerido' });
   }
-    let query_almacenes = `SELECT 
+  let query_almacenes = `SELECT 
                               consultorios.id_consultorio as ID, 
                               consultorios.descripcion as Almacen
                             FROM consultorios
                             WHERE consultorios.descripcion IN ('PRINCIPAL', 'DEVOLUCIONES', 'RESERVA')
                                 and consultorios.id_cli= ?`
   try {
-      const almacenes = await retornar_query(query_almacenes, [ id_cli]);       
-      return res.json({
-        success:true,
-        almacenes
-      });    
-  } catch (error) {
-registrarErrorPeticion(req, error)
+    const almacenes = await retornar_query(query_almacenes, [id_cli]);
     return res.json({
-        success:false,
-        datos:error
-      }); 
-    }
+      success: true,
+      almacenes
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
 })
 
-app.get('/api/crm/promociones_descuentos',  async (req,res)=> {
-  const { id_cli} = req.query;
+app.get('/api/crm/promociones_descuentos', async (req, res) => {
+  const { id_cli } = req.query;
   if (!id_cli) {
     return res.status(400).json({ error: 'El campo id_cli es requerido' });
   }
-  
+
   let query = `SELECT 
                   p.*,
                   m.id_moneda AS moneda,
@@ -3999,18 +4112,18 @@ app.get('/api/crm/promociones_descuentos',  async (req,res)=> {
                   AND p.codigo_cupon = ''
                   AND (p.cantidad_restante > 0 OR p.ilimitado = 1)`;
   try {
-      const promos = await retornar_query(query, [ id_cli]); 
-      return res.json({
-        success:true,
-        promos
-      });    
-  } catch (error) {
-registrarErrorPeticion(req, error)
+    const promos = await retornar_query(query, [id_cli]);
     return res.json({
-        success:false,
-        datos:error
-      }); 
-    }
+      success: true,
+      promos
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
 })
 
 app.get('/api/configuraciones/medic-push', async (req, res) => {
@@ -4026,12 +4139,12 @@ app.get('/api/configuraciones/medic-push', async (req, res) => {
                   FROM medic_push mp 
                   INNER JOIN medicos m ON m.id_medico = mp.id_medico
                   WHERE mp.id_cli = ?`;
- 
+
   try {
-    
+
     const afiliados = await retornar_query(query, [id_cli]);
 
-     if (afiliados) {
+    if (afiliados) {
       return res.json({
         success: true,
         data: afiliados
@@ -4044,7 +4157,7 @@ app.get('/api/configuraciones/medic-push', async (req, res) => {
     }
 
   } catch (error) {
-registrarErrorPeticion(req, error)    
+    registrarErrorPeticion(req, error)
     return res.status(500).json({ success: false, error });
   }
 });
@@ -4055,19 +4168,19 @@ app.post('/api/configuraciones/medic-push', authenticateToken, async (req, res) 
   if (!id_cli || !id_med) {
     return res.status(400).json({ error: 'Campo clinica y medico es requerido' });
   }
-  let cantidad_afiliados_max =0;
-  let cantidad_actual =0;
+  let cantidad_afiliados_max = 0;
+  let cantidad_actual = 0;
   try {
     let opciones = contenedor_query[3][4]
-    const result = await retornar_query( opciones, [id_cli])
-    cantidad_afiliados_max = result[0].cantidad_afiliados;    
-    
+    const result = await retornar_query(opciones, [id_cli])
+    cantidad_afiliados_max = result[0].cantidad_afiliados;
+
     let cantidad_registros_query = `SELECT count(mp.id) as cantidad
                   FROM medic_push mp                   
                   WHERE mp.id_cli = ?`
-    const result_cantidad = await retornar_query( cantidad_registros_query, [id_cli])
+    const result_cantidad = await retornar_query(cantidad_registros_query, [id_cli])
     cantidad_actual = result_cantidad[0].cantidad;
-    if(cantidad_actual>=cantidad_afiliados_max){
+    if (cantidad_actual >= cantidad_afiliados_max) {
       return res.json({
         success: false,
         error: "La cantidad de usuarios afiliados llego al maximo",
@@ -4076,27 +4189,27 @@ app.post('/api/configuraciones/medic-push', authenticateToken, async (req, res) 
       });
     }
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
-  }  
+    registrarErrorPeticion(req, error)
+
+  }
 
   const query = `INSERT INTO medic_push (id_cli, id_medico) VALUES (?, ?)`;
- 
+
   try {
-    
+
     const insertar = await retornar_query(query, [id_cli, id_med]);
 
-     if (insertar && !insertar?.code) {
+    if (insertar && !insertar?.code) {
       return res.json({
         success: true,
         data: insertar
       });
     } else {
-      if (insertar?.code=="ER_DUP_ENTRY"){
+      if (insertar?.code == "ER_DUP_ENTRY") {
         return res.json({
-        success: false,
-        error: "Ya existe el especialista"
-      });
+          success: false,
+          error: "Ya existe el especialista"
+        });
       }
       return res.json({
         success: false,
@@ -4105,7 +4218,7 @@ registrarErrorPeticion(req, error)
     }
 
   } catch (error) {
-registrarErrorPeticion(req, error)    
+    registrarErrorPeticion(req, error)
     return res.status(500).json({ success: false, error });
   }
 });
@@ -4118,12 +4231,12 @@ app.delete('/api/configuraciones/medic-push', authenticateToken, async (req, res
   }
 
   const query = `DELETE FROM medic_push WHERE id = ?`;
- 
+
   try {
-    
+
     const result = await retornar_query(query, [id_afiliado]);
 
-     if (result && result.affectedRows > 0) {
+    if (result && result.affectedRows > 0) {
       return res.json({
         success: true,
         data: result
@@ -4135,7 +4248,7 @@ app.delete('/api/configuraciones/medic-push', authenticateToken, async (req, res
       });
     }
   } catch (error) {
-registrarErrorPeticion(req, error)    
+    registrarErrorPeticion(req, error)
     return res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -4167,7 +4280,7 @@ app.get('/api/portal-med/cargar-plantilla', async (req, res) => {
                 consultas
             WHERE
                 id_consulta =?`;
-      break;  
+      break;
     default:
       break;
   }
@@ -4175,26 +4288,26 @@ app.get('/api/portal-med/cargar-plantilla', async (req, res) => {
   try {
     const informe = await retornar_query(query, [id]);
 
-      if (!informe || informe.error) {
-        return res.json({ success: false, error: 'No existe la plantilla' });
-      }
-      return res.json({
-        success: true,
-        data: informe[0]         
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
+    if (!informe || informe.error) {
+      return res.json({ success: false, error: 'No existe la plantilla' });
     }
+    return res.json({
+      success: true,
+      data: informe[0]
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.get('/api/portal-med/cargar-formatos', async (req, res) => {
   const { id_cli } = req.query;
 
-  if (!id_cli ) {
+  if (!id_cli) {
     return res.status(400).json({ error: 'Campo requerido' });
   }
 
@@ -4205,42 +4318,42 @@ app.get('/api/portal-med/cargar-formatos', async (req, res) => {
   try {
     const formatos = await retornar_query(query, [id_cli]);
 
-      if (!formatos || formatos.error) {
-        return res.json({ success: false, error: 'No existe formatos' });
-      }
-      return res.json({
-        success: true,
-        data: formatos         
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
+    if (!formatos || formatos.error) {
+      return res.json({ success: false, error: 'No existe formatos' });
     }
+    return res.json({
+      success: true,
+      data: formatos
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.get('/api/odonto/opciones-predeterminadas', async (req, res) => {
   const { id_cli } = req.query;
 
-  if (!id_cli  ) {
+  if (!id_cli) {
     return res.status(400).json({ error: 'Campo requerido' });
   }
 
   let query = ``;
 
 
-      query = `SELECT id, descripcion as nombre
+  query = `SELECT id, descripcion as nombre
       FROM odontol_faces
         WHERE
             id_cli IN (?, 0)`;
 
-    let query2 = `SELECT id, descripcion as nombre
+  let query2 = `SELECT id, descripcion as nombre
         FROM odontol_procedures
           WHERE
               id_cli IN (?, 0)`;
-    let query_tipo_cara = `SELECT 
+  let query_tipo_cara = `SELECT 
         ptf.id_type,
         f.id AS face_id,
         f.descripcion AS face_name
@@ -4249,7 +4362,7 @@ app.get('/api/odonto/opciones-predeterminadas', async (req, res) => {
         INNER JOIN odontol_faces f ON ptf.id_face = f.id
       ORDER BY 
         ptf.id_type, f.id;`;
-      let query_piezas = `SELECT * FROM odontol_pieces`
+  let query_piezas = `SELECT * FROM odontol_pieces`
 
   try {
     const caras = await retornar_query(query, [id_cli]);
@@ -4257,31 +4370,31 @@ app.get('/api/odonto/opciones-predeterminadas', async (req, res) => {
     const caras_tipos = await retornar_query(query_tipo_cara, [id_cli]);
     const piezas = await retornar_query(query_piezas, [id_cli]);
 
-      return res.json({
-        success: true,
-        faces: caras,
-        procedures: procedimientos,
-        caras_tipos,
-        piezas         
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
-    }
+    return res.json({
+      success: true,
+      faces: caras,
+      procedures: procedimientos,
+      caras_tipos,
+      piezas
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.post('/api/odonto/procedures', async (req, res) => {
   const result = await registrarOdontolProcedure(req.body);
-  
-  if (result.error ){
-    return res.json({error: JSON.parse(result.error.message)})
+
+  if (result.error) {
+    return res.json({ error: JSON.parse(result.error.message) })
   }
 
   const filtros = { ...result.data }
-    
+
   let query = `INSERT INTO 
                 odontol_pieces_procedures(
                   piece, 
@@ -4296,43 +4409,43 @@ app.post('/api/odonto/procedures', async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   try {
-    const insertar = await retornar_query(query, [filtros.pieza, filtros.procedimiento, filtros.estado, filtros.evaluador, filtros.realizador, filtros.notas, filtros.id_admision, filtros.fecha,  filtros.id_paciente]);
-    let  result_caras = 0;
-    if(!isNaN(insertar.insertId)){
+    const insertar = await retornar_query(query, [filtros.pieza, filtros.procedimiento, filtros.estado, filtros.evaluador, filtros.realizador, filtros.notas, filtros.id_admision, filtros.fecha, filtros.id_paciente]);
+    let result_caras = 0;
+    if (!isNaN(insertar.insertId)) {
       query = `INSERT INTO 
                 odontol_pieces_procedures_faces(
                   id_od_pieces_procedures, 
                   id_faces) 
             VALUES (?, ?)`;
-      for (const idCara of filtros.caras) {     
-          await retornar_query(query, [insertar.insertId, parseInt(idCara)]);          
-          result_caras++;
-      }      
+      for (const idCara of filtros.caras) {
+        await retornar_query(query, [insertar.insertId, parseInt(idCara)]);
+        result_caras++;
+      }
     }
-      return res.json({
-        success: true,
-        result: insertar.insertId,
-        caras: `Caras afectadas: ${result_caras}`
-               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
-    }
+    return res.json({
+      success: true,
+      result: insertar.insertId,
+      caras: `Caras afectadas: ${result_caras}`
+
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.put('/api/odonto/procedures', async (req, res) => {
   const result = await actualizarOdontolProcedure(req.body);
-  
-  if (result.error ){
-    return res.json({error: JSON.parse(result.error.message)})
+
+  if (result.error) {
+    return res.json({ error: JSON.parse(result.error.message) })
   }
 
   const filtros = { ...result.data }
-    
+
   let query = `UPDATE 
                 odontol_pieces_procedures
               SET 
@@ -4345,66 +4458,66 @@ app.put('/api/odonto/procedures', async (req, res) => {
                 fecha=? 
               WHERE 
                 id = ?`;
-                
-        if(isNaN(filtros.id)){
-          return res.json({
-            success: false,
-            error: "Error al obtener la id del procedimiento",        
-          });
-        }
+
+  if (isNaN(filtros.id)) {
+    return res.json({
+      success: false,
+      error: "Error al obtener la id del procedimiento",
+    });
+  }
   try {
-    
-    const actualizar = await retornar_query(query, [filtros.pieza, filtros.procedimiento, filtros.estado, filtros.evaluador, filtros.realizador, filtros.notas,  filtros.fecha, filtros.id]);
-    let  result_caras = 0;
+
+    const actualizar = await retornar_query(query, [filtros.pieza, filtros.procedimiento, filtros.estado, filtros.evaluador, filtros.realizador, filtros.notas, filtros.fecha, filtros.id]);
+    let result_caras = 0;
     let eliminacion = "";
-    if(actualizar.affectedRows>0){
+    if (actualizar.affectedRows > 0) {
       query = `DELETE FROM 
                 odontol_pieces_procedures_faces
               WHERE 
                 id_od_pieces_procedures = ?`;
-     eliminacion = await retornar_query(query, [filtros.id]);
-      
-     if(eliminacion.affectedRows>0){
-       query = `INSERT INTO 
+      eliminacion = await retornar_query(query, [filtros.id]);
+
+      if (eliminacion.affectedRows > 0) {
+        query = `INSERT INTO 
                 odontol_pieces_procedures_faces(
                   id_od_pieces_procedures, 
                   id_faces) 
             VALUES (?, ?)`;
-      for (const idCara of filtros.caras) {     
-          await retornar_query(query, [filtros.id, parseInt(idCara)]);          
+        for (const idCara of filtros.caras) {
+          await retornar_query(query, [filtros.id, parseInt(idCara)]);
           result_caras++;
-      }    
-     } 
-       
-    }else{
+        }
+      }
+
+    } else {
       return res.json({
         success: false,
-        error: "Error al actualizar el procedimiento",        
+        error: "Error al actualizar el procedimiento",
       });
     }
-      return res.json({
-        success: true,
-        result: filtros.id,
-        caras_elim: eliminacion,
-        caras: `Caras afectadas: ${result_caras}`
-               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
-    }
+    return res.json({
+      success: true,
+      result: filtros.id,
+      caras_elim: eliminacion,
+      caras: `Caras afectadas: ${result_caras}`
+
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.patch('/api/odonto/procedures-estado', async (req, res) => {
-  const {id, estado, id_realizado} = req.query
-  
-  if (!id || !estado ){
-    return res.json({error: "Faltan datos"})
+  const { id, estado, id_realizado } = req.query
+
+  if (!id || !estado) {
+    return res.json({ error: "Faltan datos" })
   }
-    
+
   let query = `INSERT INTO 
                 odontol_pieces_procedures
                 (piece, id_procedure, estado, id_evaluador, id_realizado, nota, id_admidet, id_paciente, fecha)              
@@ -4412,11 +4525,11 @@ app.patch('/api/odonto/procedures-estado', async (req, res) => {
                 FROM odontol_pieces_procedures
               WHERE 
                 id = ?`;
-            
+
   try {
-    
-    const actualizar = await retornar_query(query, [estado, id_realizado,id ]);
-    if(!isNaN(actualizar.insertId)){
+
+    const actualizar = await retornar_query(query, [estado, id_realizado, id]);
+    if (!isNaN(actualizar.insertId)) {
       query = `INSERT INTO 
                 odontol_pieces_procedures_faces(
                   id_od_pieces_procedures, 
@@ -4426,29 +4539,29 @@ app.patch('/api/odonto/procedures-estado', async (req, res) => {
               WHERE 
                 id_od_pieces_procedures = ?`;
     }
-    let caras = await retornar_query(query, [actualizar.insertId, id ]);
-   
-      return res.json({
-        success: true,
-        result: actualizar,               
-        caras
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
-    }
+    let caras = await retornar_query(query, [actualizar.insertId, id]);
+
+    return res.json({
+      success: true,
+      result: actualizar,
+      caras
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.get('/api/odonto/procedures', async (req, res) => {
-  const {id_admision, fecha = new Date().toISOString().slice(0, 10)} = req.query
-  
-  if (!id_admision ){
-    return res.json({error: "Faltan datos"})
+  const { id_admision, fecha = new Date().toISOString().slice(0, 10) } = req.query
+
+  if (!id_admision) {
+    return res.json({ error: "Faltan datos" })
   }
-    
+
   let query = `SELECT
                 a.fecha_admision,
                 a.tipo_consulta,
@@ -4502,67 +4615,67 @@ app.get('/api/odonto/procedures', async (req, res) => {
     INNER JOIN odontol_pieces_procedures_faces oppf ON opp.id = oppf.id_od_pieces_procedures 
     WHERE opp.id_paciente = ? and opp.fecha <= DATE(?) 
     GROUP BY opp.piece, opp.id_procedure
-    ORDER BY opp.fecha DESC;`            
+    ORDER BY opp.fecha DESC;`
   try {
-    
+
     const paciente_consulta = await retornar_query(query, [id_admision]);
-    if(paciente_consulta.length>0){
+    if (paciente_consulta.length > 0) {
       const paciente_procedimientos = await retornar_query(query2, [paciente_consulta[0].id_paciente, fecha]);
       return res.json({
         success: true,
-        result: paciente_consulta,   
-        procedures:  paciente_procedimientos           
-      }); 
-    }
-      return res.json({
-        success: true,
-        result: paciente_consulta,               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
+        result: paciente_consulta,
+        procedures: paciente_procedimientos
       });
     }
+    return res.json({
+      success: true,
+      result: paciente_consulta,
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.delete('/api/odonto/procedures', async (req, res) => {
-  const {id_odonto_procedure} = req.query
-  
-  if (!id_odonto_procedure ){
-    return res.json({error: "Faltan datos"})
+  const { id_odonto_procedure } = req.query
+
+  if (!id_odonto_procedure) {
+    return res.json({ error: "Faltan datos" })
   }
-    
+
   let query = `
     DELETE FROM 
       odontol_pieces_procedures  
-    WHERE id = ? ;`            
+    WHERE id = ? ;`
   try {
-    
+
     const odontol_pieces_procedures = await retornar_query(query, [id_odonto_procedure]);
-    
-      return res.json({
-        success: true,
-        result: odontol_pieces_procedures,   
-    
-      }); 
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
-      });
-    }
+
+    return res.json({
+      success: true,
+      result: odontol_pieces_procedures,
+
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
 app.get('/api/odonto/especialistas', async (req, res) => {
-  const {id_cli} = req.query
-  
-  if (!id_cli ){
-    return res.json({error: "Faltan datos"})
+  const { id_cli } = req.query
+
+  if (!id_cli) {
+    return res.json({ error: "Faltan datos" })
   }
-    
+
   let query = `SELECT
                 m.id_medico,
                 CONCAT(m.nombre, ' ', m.apellido) AS especialista,
@@ -4580,78 +4693,78 @@ app.get('/api/odonto/especialistas', async (req, res) => {
                 LOWER(e.descripcion) LIKE '%odon%'
                 AND mc.id_cli = ?;`;
   try {
-    
+
     const especialistas = await retornar_query(query, [id_cli]);
-    if(especialistas.error){
-     
+    if (especialistas.error) {
+
       return res.json({
         success: false,
         error: "No existen especialistas del area"
-      }); 
-    }
-      return res.json({
-        success: true,
-        result: especialistas,               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
       });
     }
+    return res.json({
+      success: true,
+      result: especialistas,
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
 });
 
-app.get('/api/caja/estado', async (req, res)=>{
-const {id_cli, fecha} = req.query
-  
-  if (!id_cli ){
-    return res.json({error: "Faltan datos"})
+app.get('/api/caja/estado', async (req, res) => {
+  const { id_cli, fecha } = req.query
+
+  if (!id_cli) {
+    return res.json({ error: "Faltan datos" })
   }
-   
+
   let query = `
   SELECT estado     
       FROM 
         caja_apertura_cierre
       WHERE
         id_cli =? AND
-        fecha = ? `  
+        fecha = ? `
   try {
-    
-    const estado = await retornar_query(query, [id_cli,fecha]);
-    if(estado.error){
+
+    const estado = await retornar_query(query, [id_cli, fecha]);
+    if (estado.error) {
       return res.json({
         success: true,
         estado: "Cerrado"
-        
-      }); 
-    }
-    let status = (estado[0].estado==1)?"Abierto":"Cerrado"
-    
-    return res.json({
-        success: true,
-        estado: status,               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
+
       });
     }
-} ) 
+    let status = (estado[0].estado == 1) ? "Abierto" : "Cerrado"
 
-app.post('/api/caja/apertura', async (req, res)=>{
-const {id_cli, fecha, id_usu,  detalles} = req.body
-  
-  if (!id_cli || isNaN(id_cli) || !fecha || !id_usu || isNaN(id_usu) || !Array.isArray(detalles) || detalles.length === 0 ){
-    return res.json({error: "Faltan datos"})
+    return res.json({
+      success: true,
+      estado: status,
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
+})
+
+app.post('/api/caja/apertura', async (req, res) => {
+  const { id_cli, fecha, id_usu, detalles } = req.body
+
+  if (!id_cli || isNaN(id_cli) || !fecha || !id_usu || isNaN(id_usu) || !Array.isArray(detalles) || detalles.length === 0) {
+    return res.json({ error: "Faltan datos" })
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return res.status(400).json({ error: 'El formato de la fecha debe ser YYYY-MM-DD.' });
   }
-  
+
   if (!Array.isArray(detalles) || detalles.length === 0) {
     return res.status(400).json({ error: 'El campo detalles debe ser un array de objetos no vacío.' });
   }
@@ -4685,12 +4798,12 @@ const {id_cli, fecha, id_usu,  detalles} = req.body
     const result_apertura = await retornar_query(query_insert_apertura, [id_cli, fecha, id_usu]);
 
     if (result_apertura.error || !result_apertura.insertId) {
-      if(result_apertura.message.startsWith("Duplicate entry")){
-         return res.json({
-        success: false,
-        error: 'La caja ya esta abierta en esta fecha.',
-        details: result_apertura
-      });
+      if (result_apertura.message.startsWith("Duplicate entry")) {
+        return res.json({
+          success: false,
+          error: 'La caja ya esta abierta en esta fecha.',
+          details: result_apertura
+        });
       }
       return res.json({
         success: false,
@@ -4713,8 +4826,8 @@ const {id_cli, fecha, id_usu,  detalles} = req.body
     });
 
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
     return res.status(500).json({
       success: false,
       error: 'Error interno del servidor al procesar la solicitud.',
@@ -4723,11 +4836,11 @@ registrarErrorPeticion(req, error)
   }
 });
 
-app.get('/api/caja/cierre', async (req, res)=>{
-const {id_cli, fecha} = req.query
+app.get('/api/caja/cierre', async (req, res) => {
+  const { id_cli, fecha } = req.query
 
-  if (!id_cli || !fecha ){
-    return res.json({error: "Faltan datos"})
+  if (!id_cli || !fecha) {
+    return res.json({ error: "Faltan datos" })
   }
 
   let query = `SELECT cp.id_moneda, 
@@ -4751,19 +4864,19 @@ const {id_cli, fecha} = req.query
 
   try {
     let cierre = await retornar_query(query, [id_cli, fecha]);
-    if(cierre.error){
+    if (cierre.error) {
       cierre = [{
-                    "id_moneda": 2,
-                    "moneda_descripcion": "Bs",
-                    "id_forma_pago": 3,
-                    "forma_pago_descripcion": "Pago Movil",
-                    "cantidad_pagos": 0,
-                    "total_moneda_original": "0.00",
-                    "total_bs_equivalente": "0.00"
-                }]
+        "id_moneda": 2,
+        "moneda_descripcion": "Bs",
+        "id_forma_pago": 3,
+        "forma_pago_descripcion": "Pago Movil",
+        "cantidad_pagos": 0,
+        "total_moneda_original": "0.00",
+        "total_bs_equivalente": "0.00"
+      }]
     }
-    
-    query=`SELECT 
+
+    query = `SELECT 
     cad.id_moneda,
     CASE 
         WHEN cad.id_moneda = 1 THEN 'USD'
@@ -4787,37 +4900,37 @@ GROUP BY
     cad.id_moneda, cad.id_formato, fp.descripcion
 ORDER BY 
     cad.id_moneda, cad.id_formato;`;
-    
+
     let movimientos_apertura = await retornar_query(query, [id_cli, fecha]);
 
-    if(movimientos_apertura.error){
+    if (movimientos_apertura.error) {
       return res.json({
         success: false,
         error: "No existen apertura en el dia"
       });
     }
-    
+
 
 
     return res.json({
       success: true,
       movimientos_dia: cierre,
-      movimientos_apertura: movimientos_apertura,               
-    });      
-    
+      movimientos_apertura: movimientos_apertura,
+    });
+
 
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
   }
 
 })
 
-app.post('/api/caja/cierre', async (req, res)=>{
-const {id_cli, id_usu, fecha} = req.body
-  
-  if (!id_cli || isNaN(id_cli) || !id_usu || isNaN(id_usu) ){
-    return res.json({error: "Faltan datos"})
+app.post('/api/caja/cierre', async (req, res) => {
+  const { id_cli, id_usu, fecha } = req.body
+
+  if (!id_cli || isNaN(id_cli) || !id_usu || isNaN(id_usu)) {
+    return res.json({ error: "Faltan datos" })
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
@@ -4834,7 +4947,7 @@ const {id_cli, id_usu, fecha} = req.body
   try {
     const query_cerrar = await retornar_query(query_cerrar_q, [id_usu, id_cli, fecha]);
 
-    if (query_cerrar.error ) {           
+    if (query_cerrar.error) {
       return res.json({
         success: false,
         error: 'Error al registrar el cierre de caja.',
@@ -4849,8 +4962,8 @@ const {id_cli, id_usu, fecha} = req.body
     });
 
   } catch (error) {
-registrarErrorPeticion(req, error)
-    
+    registrarErrorPeticion(req, error)
+
     return res.status(500).json({
       success: false,
       error: 'Error interno del servidor al procesar la solicitud.',
@@ -4859,13 +4972,13 @@ registrarErrorPeticion(req, error)
   }
 });
 
-app.get('/api/pacientes/get_ultima_direccion', async (req, res)=>{
-const {paciente} = req.query
-  
-  if (!paciente ){
-    return res.json({error: "Faltan datos"})
+app.get('/api/pacientes/get_ultima_direccion', async (req, res) => {
+  const { paciente } = req.query
+
+  if (!paciente) {
+    return res.json({ error: "Faltan datos" })
   }
-    
+
   let query = `
   SELECT
         a.id_estado,
@@ -4893,68 +5006,68 @@ const {paciente} = req.query
         a.id_paciente =? AND
         a.activo =1 
       ORDER BY a.fecha_admision DESC 
-      LIMIT 1`  
-  try {    
+      LIMIT 1`
+  try {
     const direccion = await retornar_query(query, [paciente]);
-    if(direccion.error){
-     
+    if (direccion.error) {
+
       return res.json({
         success: false,
         error: "No existen especialistas del area"
-      }); 
-    }
-      return res.json({
-        success: true,
-        result: direccion,               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
       });
     }
-} ) 
+    return res.json({
+      success: true,
+      result: direccion,
+    });
+
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
+})
 
 app.get('/api/empresas-registradas', loginLimiter, async (req, res) => {
-let query = `
+  let query = `
   SELECT pue.apellidos as clinica, 
         e.estado,
         pue.id
   FROM perfil_usuario_empresa pue
   INNER JOIN estados e ON e.id_estado = pue.id_estado
 `
-try {
+  try {
     const empresas = await retornar_query(query, []);
-    if(empresas.error){
+    if (empresas.error) {
       return res.json({
         success: false,
         error: "No existen empresas registradas"
-      }); 
-    }
-      return res.json({
-        success: true,
-        result: empresas,               
-      });      
-      
-    } catch {
-      return res.json({
-        success: false,
-        error: error,        
       });
     }
-} )
+    return res.json({
+      success: true,
+      result: empresas,
+    });
 
-app.get('/api/reportes/record_medico', async (req,res)=> {
-  const { fechaInicial, fechaFinal, id_cli} = req.query;
+  } catch {
+    return res.json({
+      success: false,
+      error: error,
+    });
+  }
+})
+
+app.get('/api/reportes/record_medico', async (req, res) => {
+  const { fechaInicial, fechaFinal, id_cli } = req.query;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaInicial)) {
     return res.status(400).json({ error: 'El formato de la fecha' });
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaFinal)) {  
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaFinal)) {
     return res.status(400).json({ error: 'El formato de la fecha' });
   }
-  if(isNaN(id_cli)){  
+  if (isNaN(id_cli)) {
     return res.status(400).json({ error: 'El id es necesario' });
   }
 
@@ -4984,32 +5097,32 @@ GROUP BY
     m.apellido
 ORDER BY 
     medico, 
-    procedimiento;`;    
-  
- try {
-    const respuesta = await retornar_query(query, [id_cli, fechaInicial, fechaFinal]);         
-    
-      return res.json({
-        success:true,
-        data:respuesta
-      });    
-    
-  } catch (error) {
-registrarErrorPeticion(req, error)
+    procedimiento;`;
+
+  try {
+    const respuesta = await retornar_query(query, [id_cli, fechaInicial, fechaFinal]);
+
     return res.json({
-        success:false,
-        error:error
-      }); 
-    }
+      success: true,
+      data: respuesta
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      error: error
+    });
+  }
 })
 
-app.get('/api/news/:id_cli', async (req,res)=> {
+app.get('/api/news/:id_cli', async (req, res) => {
   const { id_cli } = req.params;
-  const { page=1, perPage=10 } = req.query;
+  const { page = 1, perPage = 10 } = req.query;
 
   const offset = (page - 1) * perPage;
 
-  if(isNaN(id_cli)){  
+  if (isNaN(id_cli)) {
     return res.status(400).json({ error: 'El id es necesario' });
   }
 
@@ -5021,58 +5134,60 @@ app.get('/api/news/:id_cli', async (req,res)=> {
   WHERE id_cli IN (0,?)
   ORDER BY 
       id_version DESC
-   LIMIT ? OFFSET ?`;    
-  
- try {
-    const respuesta = await retornarQuery(query, [id_cli, perPage, offset]);         
-    
+   LIMIT ? OFFSET ?`;
+
+  try {
+    const respuesta = await retornarQuery(query, [id_cli, perPage, offset]);
+
     let query_total = `
       SELECT COUNT(*) AS total
       FROM versiones
       WHERE id_cli IN (0,?)`
 
 
-      let total = await retornar_query(query_total, [id_cli]);
-      
-      if(total.error){
-        return res.json({ success: false, error: 'Error al obtener el total' + total.error });
-      }
-      if(Number(total[0].total)===0){
-        return res.json({ success: true, data: [], total: 0 });
-      }
+    let total = await retornar_query(query_total, [id_cli]);
 
-      const total_news = Number(total[0].total) || 0;
-      const totalPages=  Math.ceil(total_news / perPage)
-
-
-      res.json({ success: true,
-                data:respuesta,
-                pagination: {
-                          page,
-                          perPage,
-                          totalPages,
-                          total_news
-                        }});         
-    
-  } catch (error) {
-registrarErrorPeticion(req, error)
-    return res.json({
-        success:false,
-        error:error
-      }); 
+    if (total.error) {
+      return res.json({ success: false, error: 'Error al obtener el total' + total.error });
     }
+    if (Number(total[0].total) === 0) {
+      return res.json({ success: true, data: [], total: 0 });
+    }
+
+    const total_news = Number(total[0].total) || 0;
+    const totalPages = Math.ceil(total_news / perPage)
+
+
+    res.json({
+      success: true,
+      data: respuesta,
+      pagination: {
+        page,
+        perPage,
+        totalPages,
+        total_news
+      }
+    });
+
+  } catch (error) {
+    registrarErrorPeticion(req, error)
+    return res.json({
+      success: false,
+      error: error
+    });
+  }
 })
 
 app.use((error, req, res, next) => {
   if (req.requestId) {
     registrarErrorPeticion(req, error.message + 'error aqui');
   }
-  res.status(500).json({ success: false, error: 'Error interno a',detalles: error });
+  res.status(500).json({ success: false, error: 'Error interno a', detalles: error });
 });
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
-    console.log('Authorization', authHeader);
+
 });
 
 //actualizarUUIDs('id_paciente', 'pacientes', 'uuid_paciente');

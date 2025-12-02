@@ -7,9 +7,9 @@ const { buildUpdateQuery } = require('../funciones/funciones_comunes_be');
 
 // GET /api/portal_medico
 router.get('/listado-pacientes', async (req, res) => {
-    const {id_cli, id_med, fechaInicio, fechaFin} = req.query;
-    try {
-        const query = `
+  const { id_cli, id_med, fechaInicio, fechaFin } = req.query;
+  try {
+    const query = `
             SELECT 
                 a.id_estado_admision,
                 a.id_admision, 
@@ -74,28 +74,29 @@ router.get('/listado-pacientes', async (req, res) => {
                 turno, 
                 a.id_admision
         `;
-        
-        const listado = await retornar_query(query,[id_med, id_cli, fechaInicio, fechaFin]);
-        
-        if (!Array.isArray(listado)) {            
-            return res.json({
-                success: false,
-                error: 'Error interno al procesar los presupuestos.',
-                listado
-            });
-        }
-        
-        return res.json({
-            success: true,
-            data: listado
-        });
-    } catch (error) { registrarErrorPeticion(req, error);       
-        return res.status(400).json({
-            success: false,
-            error: 'Error al obtener el listado',
-            details: error
-        });
+
+    const listado = await retornar_query(query, [id_med, id_cli, fechaInicio, fechaFin]);
+
+    if (!Array.isArray(listado)) {
+      return res.json({
+        success: false,
+        error: 'Error interno al procesar los presupuestos.',
+        listado
+      });
     }
+
+    return res.json({
+      success: true,
+      data: listado
+    });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.status(400).json({
+      success: false,
+      error: 'Error al obtener el listado',
+      details: error
+    });
+  }
 });
 
 router.post('/evoluciones/', authenticateToken, async (req, res) => {
@@ -111,7 +112,7 @@ router.post('/evoluciones/', authenticateToken, async (req, res) => {
     resultados_estudios,
     plan,
     notas_adicionales,
-    signos_vitales 
+    signos_vitales
   } = req.body;
 
   if (!req.id_cli || isNaN(req.id_cli)) {
@@ -132,26 +133,26 @@ router.post('/evoluciones/', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, error: 'estado_paciente no válido' });
   }
 
-  if(!id_consulta || isNaN(id_consulta)){
+  if (!id_consulta || isNaN(id_consulta)) {
     return res.status(400).json({ success: false, error: 'id_consulta es obligatorio y debe ser numérico' });
   }
   let id_dato_enfermeria = null;
 
   try {
-    
-    if (signos_vitales && Object.keys(signos_vitales).length > 0) {
-  const {
-    pa_sistolica,
-    pa_diastolica,
-    frec_cardiaca,
-    frec_respiratoria,
-    temperatura,
-    sat_oxigeno,
-    peso,
-    talla
-  } = signos_vitales;
 
-  const queryEnf = `
+    if (signos_vitales && Object.keys(signos_vitales).length > 0) {
+      const {
+        pa_sistolica,
+        pa_diastolica,
+        frec_cardiaca,
+        frec_respiratoria,
+        temperatura,
+        sat_oxigeno,
+        peso,
+        talla
+      } = signos_vitales;
+
+      const queryEnf = `
     INSERT INTO datos_enfermeria (
       id_paciente,  id_usuario, proc_reg,
       pa_sistolica, pa_diastolica,
@@ -167,23 +168,23 @@ router.post('/evoluciones/', authenticateToken, async (req, res) => {
     Where c.id_consulta =?) 
     )
   `;
-  const paramsEnf = [
-    id_paciente,  id_med,
-    pa_sistolica ? parseInt(pa_sistolica, 10) : null,
-    pa_diastolica ? parseInt(pa_diastolica, 10) : null,
-    frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
-    frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
-    temperatura ? parseFloat(temperatura) : null,
-    sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
-    peso ? parseFloat(peso) : null,
-    talla ? parseFloat(talla) : null, 
-    id_consulta
-  ];
+      const paramsEnf = [
+        id_paciente, id_med,
+        pa_sistolica ? parseInt(pa_sistolica, 10) : null,
+        pa_diastolica ? parseInt(pa_diastolica, 10) : null,
+        frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
+        frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
+        temperatura ? parseFloat(temperatura) : null,
+        sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
+        peso ? parseFloat(peso) : null,
+        talla ? parseFloat(talla) : null,
+        id_consulta
+      ];
 
-  const resultEnf = await retornarQuery(queryEnf, paramsEnf);
-  if (resultEnf.error) throw new Error('Error al registrar signos vitales');
-  id_dato_enfermeria = resultEnf.data.insertId;
-}
+      const resultEnf = await retornarQuery(queryEnf, paramsEnf);
+      if (resultEnf.error) throw new Error('Error al registrar signos vitales');
+      id_dato_enfermeria = resultEnf.data.insertId;
+    }
 
     // 2. Insertar evolución
     const queryEvol = `
@@ -308,7 +309,7 @@ router.get('/evoluciones/:id_evolucion', authenticateToken, async (req, res) => 
       return res.status(404).json({ success: false, error: 'Evolución no encontrada' });
     }
 
-    return res.json({ success: true, datos: result.data[0]  });
+    return res.json({ success: true, datos: result.data[0] });
   } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ success: false, error: error.message });
@@ -333,24 +334,24 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
     return res.status(400).json({ success: false, error: 'No se puede editar una evolución ya firmada' });
   }
 
-  const { id_paciente,  id_med } = checkResult.data[0];
+  const { id_paciente, id_med } = checkResult.data[0];
   let id_dato_enfermeria = null;
 
   try {
     // 2. Si hay nuevos signos_vitales, crear nuevo registro (reemplazar enlace)
-   if (signos_vitales && Object.keys(signos_vitales).length > 0) {
-  const {
-    pa_sistolica,
-    pa_diastolica,
-    frec_cardiaca,
-    frec_respiratoria,
-    temperatura,
-    sat_oxigeno,
-    peso,
-    talla
-  } = signos_vitales;
+    if (signos_vitales && Object.keys(signos_vitales).length > 0) {
+      const {
+        pa_sistolica,
+        pa_diastolica,
+        frec_cardiaca,
+        frec_respiratoria,
+        temperatura,
+        sat_oxigeno,
+        peso,
+        talla
+      } = signos_vitales;
 
-  const queryEnf = `
+      const queryEnf = `
     INSERT INTO datos_enfermeria (
       id_paciente, id_usuario, proc_reg,
       pa_sistolica, pa_diastolica,
@@ -364,22 +365,22 @@ router.patch('/evoluciones/:id_evolucion', authenticateToken, async (req, res) =
     inner join consultas c ON  c.id_admidet=ad.id_admidet
     Where c.id_consulta =?))
   `;
-  const paramsEnf = [
-    id_paciente, id_med,
-    pa_sistolica ? parseInt(pa_sistolica, 10) : null,
-    pa_diastolica ? parseInt(pa_diastolica, 10) : null,
-    frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
-    frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
-    temperatura ? parseFloat(temperatura) : null,
-    sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
-    peso ? parseFloat(peso) : null,
-    talla ? parseFloat(talla) : null,
-    updateFields.id_consulta
-  ];
+      const paramsEnf = [
+        id_paciente, id_med,
+        pa_sistolica ? parseInt(pa_sistolica, 10) : null,
+        pa_diastolica ? parseInt(pa_diastolica, 10) : null,
+        frec_cardiaca ? parseInt(frec_cardiaca, 10) : null,
+        frec_respiratoria ? parseInt(frec_respiratoria, 10) : null,
+        temperatura ? parseFloat(temperatura) : null,
+        sat_oxigeno ? parseInt(sat_oxigeno, 10) : null,
+        peso ? parseFloat(peso) : null,
+        talla ? parseFloat(talla) : null,
+        updateFields.id_consulta
+      ];
 
-  const resultEnf = await retornarQuery(queryEnf, paramsEnf);
-  id_dato_enfermeria = resultEnf.data.insertId;
-}
+      const resultEnf = await retornarQuery(queryEnf, paramsEnf);
+      id_dato_enfermeria = resultEnf.data.insertId;
+    }
 
     // 3. Campos permitidos para actualizar
     const allowed = [
@@ -435,7 +436,7 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
   }
 
   // Suponemos que authenticateToken inyecta req.user con el id del usuario autenticado
-  let id_usuario_firma = req.logData.id_usuario; 
+  let id_usuario_firma = req.logData.id_usuario;
   if (!id_usuario_firma) {
     return res.status(401).json({ success: false, error: 'Usuario no autenticado o sin ID' });
   }
@@ -462,18 +463,18 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
 
 
     // solo el médico que la creó pueda firmar:
-    try{
+    try {
       let queryUsuario = "SELECT id_especialista FROM perfil_usuario_basico WHERE id_usuario=?"
-      let idMedUsu = await retornarQuery(queryUsuario,[id_usuario_firma])
-      id_usuario_firma=idMedUsu.data[0].id_especialista
-    }catch{
+      let idMedUsu = await retornarQuery(queryUsuario, [id_usuario_firma])
+      id_usuario_firma = idMedUsu.data[0].id_especialista
+    } catch {
       return res.status(403).json({ success: false, error: 'Usuario no es especialista' });
     }
-   
+
     if (evol.id_med !== id_usuario_firma) {
-      return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar esta evolución', firmas:{evol:evol.id_med, id_usuario_firma} });
+      return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar esta evolución', firmas: { evol: evol.id_med, id_usuario_firma } });
     }
-  
+
     // 2. Actualizar como firmada
     const updateQuery = `
       UPDATE evoluciones 
@@ -498,7 +499,7 @@ router.post('/evoluciones/:id_evolucion/firmar', authenticateToken, async (req, 
 
   } catch (error) {
     registrarErrorPeticion(req, error);
-    return res.status(500).json({ success: false, error: error.message, firmas:{evol:evol.id_med, id_usuario_firma} });
+    return res.status(500).json({ success: false, error: error.message, firmas: { evol: evol.id_med, id_usuario_firma } });
   }
 });
 
@@ -591,10 +592,19 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
   select * from pacientes where id_paciente = ?
   `
 
+  let queryAntecedentes = `
+  SELECT app.* FROM antecedentes_personales_patologicos app  
+  INNER join consultas c ON c.id_consulta=app.id_consulta
+  INNER join admisiones_det ad ON ad.id_admidet=c.id_admidet
+  INNER join admisiones a ON a.id_admision=ad.id_admision   
+  WHERE app.id_paciente=? and a.id_cli=?
+  `;
+
   try {
     const result = await retornarQuery(query, [id_paciente, req.id_cli, id_paciente, req.id_cli]);
-    const paciente =  await retornarQuery(queryPaciente, [id_paciente]);
-    return res.json({ success: true, datos: result, paciente });
+    const paciente = await retornarQuery(queryPaciente, [id_paciente]);
+    const antecedentes = await retornarQuery(queryAntecedentes, [id_paciente, req.id_cli]);
+    return res.json({ success: true, datos: result, paciente, antecedentes });
   } catch (error) {
     registrarErrorPeticion(req, error);
     return res.status(500).json({ success: false, error: error.message });
@@ -621,7 +631,7 @@ router.get('/catalogos/tipos-evolucion', authenticateToken, async (req, res) => 
 router.post('/recetas/:id_evolucion', authenticateToken, async (req, res) => {
   const { id_evolucion } = req.params;
   const {
-    id_consulta,         
+    id_consulta,
     nombre_medicamento,
     dosis,
     via_administracion,
@@ -644,7 +654,7 @@ router.post('/recetas/:id_evolucion', authenticateToken, async (req, res) => {
 
   try {
     let evolId, id_paciente, id_med, id_cli;
- let consultaResult, evolResult;
+    let consultaResult, evolResult;
     if (id_evolucion === '0') {
       // === Crear evolución automática ===
       if (!id_consulta || isNaN(id_consulta)) {
@@ -710,7 +720,7 @@ router.post('/recetas/:id_evolucion', authenticateToken, async (req, res) => {
       ]
     );
 
-    return res.json({ success: true, datos: { id_receta: result.data.insertId, id_evolucion: evolId },consultaResult, evolResult, result });
+    return res.json({ success: true, datos: { id_receta: result.data.insertId, id_evolucion: evolId }, consultaResult, evolResult, result });
 
   } catch (error) {
     registrarErrorPeticion(req, error);
@@ -721,7 +731,7 @@ router.post('/recetas/:id_evolucion', authenticateToken, async (req, res) => {
 router.post('/tratamientos/:id_evolucion', authenticateToken, async (req, res) => {
   const { id_evolucion } = req.params;
   const {
-    id_consulta,         
+    id_consulta,
     descripcion,
     tipo_tratamiento
   } = req.body;
@@ -739,23 +749,26 @@ router.post('/tratamientos/:id_evolucion', authenticateToken, async (req, res) =
 
   try {
     let evolId, id_paciente, id_med, id_cli;
-
+    let consultaResult, evolResult;
     if (id_evolucion === '0') {
       // === Crear evolución automática ===
       if (!id_consulta || isNaN(id_consulta)) {
         return res.status(400).json({ success: false, error: 'id_consulta es obligatorio cuando id_evolucion = 0' });
       }
 
-      const consultaResult = await retornarQuery(
-        `SELECT id_paciente, id_med, id_cli FROM consultas WHERE id_consulta = ?`,
+      consultaResult = await retornarQuery(
+        `SELECT a.id_paciente, ad.id_medico, a.id_cli FROM consultas c
+        inner join admisiones_det ad on ad.id_admidet = c.id_admidet
+        inner join admisiones a on a.id_admision = ad.id_admision
+        WHERE id_consulta = ?`,
         [id_consulta]
       );
       if (consultaResult.data.length === 0) {
         return res.status(400).json({ success: false, error: 'Consulta no encontrada' });
       }
-      const { id_paciente: c_pac, id_med: c_med, id_cli: c_cli } = consultaResult.data[0];
+      const { id_paciente: c_pac, id_medico: c_med, id_cli: c_cli } = consultaResult.data[0];
 
-      const evolResult = await retornarQuery(
+      evolResult = await retornarQuery(
         `INSERT INTO evoluciones (
           id_paciente, id_consulta, id_med, id_cli,
           tipo_evolucion, estado_paciente, motivo, firmada, fecha_hora
@@ -770,7 +783,7 @@ router.post('/tratamientos/:id_evolucion', authenticateToken, async (req, res) =
 
     } else {
       // === Usar evolución existente ===
-      const evolResult = await retornarQuery(
+      evolResult = await retornarQuery(
         `SELECT id_paciente, id_med, id_cli FROM evoluciones WHERE id_evolucion = ? AND firmada = FALSE`,
         [id_evolucion]
       );
@@ -839,16 +852,20 @@ router.post('/ordenes-estudios/:id_evolucion', authenticateToken, async (req, re
 
       // 1. Obtener contexto de la consulta
       const consultaResult = await retornarQuery(
-        `SELECT id_paciente, id_med, id_cli FROM consultas WHERE id_consulta = ?`,
+        `SELECT a.id_paciente, ad.id_medico, a.id_cli FROM consultas c
+        inner join admisiones_det ad on ad.id_admidet = c.id_admidet
+        inner join admisiones a on a.id_admision = ad.id_admision
+        WHERE id_consulta = ?`,
         [id_consulta]
       );
       if (consultaResult.data.length === 0) {
         return res.status(400).json({ success: false, error: 'Consulta no encontrada' });
       }
-      const { id_paciente: c_pac, id_med: c_med, id_cli: c_cli } = consultaResult.data[0];
+      const { id_paciente: c_pac, id_medico: c_med, id_cli: c_cli } = consultaResult.data[0];
 
       // 2. Crear evolución mínima
       const evolResult = await retornarQuery(
+
         `INSERT INTO evoluciones (
           id_paciente, id_consulta, id_med, id_cli,
           tipo_evolucion, estado_paciente, motivo, firmada, fecha_hora
@@ -937,7 +954,23 @@ router.get('/evoluciones/:id_evolucion/recetas', authenticateToken, async (req, 
       [id_evolucion]
     );
 
-    return res.json({ success: true, datos: result.data });
+    const consultaResult = await retornarQuery(
+      `SELECT
+        r.id_receta,
+        r.id_evolucion
+      from recetas r
+      inner join evoluciones e on e.id_evolucion = r.id_evolucion
+      inner join consultas c on c.id_consulta = e.id_consulta
+      where c.id_consulta = (
+        SELECT 
+          id_consulta
+         FROM evoluciones
+         WHERE id_evolucion = ?
+      )`,
+      [id_evolucion]
+    );
+
+    return res.json({ success: true, datos: result.data, recetas: consultaResult.data });
 
   } catch (error) {
     registrarErrorPeticion(req, error);
@@ -965,7 +998,23 @@ router.get('/evoluciones/:id_evolucion/tratamientos', authenticateToken, async (
       [id_evolucion]
     );
 
-    return res.json({ success: true, datos: result.data });
+    const consultaResult = await retornarQuery(
+      `SELECT
+        t.id_tratamiento,
+        t.id_evolucion
+      from tratamientos t
+      inner join evoluciones e on e.id_evolucion = t.id_evolucion
+      inner join consultas c on c.id_consulta = e.id_consulta
+      where c.id_consulta = (
+        SELECT 
+          id_consulta
+         FROM evoluciones
+         WHERE id_evolucion = ?
+      )`,
+      [id_evolucion]
+    );
+
+    return res.json({ success: true, datos: result.data, tratamientos: consultaResult.data });
 
   } catch (error) {
     registrarErrorPeticion(req, error);
@@ -997,7 +1046,23 @@ router.get('/evoluciones/:id_evolucion/ordenes-estudios', authenticateToken, asy
       [id_evolucion]
     );
 
-    return res.json({ success: true, datos: result.data });
+    const consultaResult = await retornarQuery(
+      `SELECT
+        o.id_orden,
+        o.id_evolucion
+      from ordenes_estudios o
+      inner join evoluciones e on e.id_evolucion = o.id_evolucion
+      inner join consultas c on c.id_consulta = e.id_consulta
+      where c.id_consulta = (
+        SELECT 
+          id_consulta
+         FROM evoluciones
+         WHERE id_evolucion = ?
+      )`,
+      [id_evolucion]
+    );
+
+    return res.json({ success: true, datos: result.data, ordenesEstudios: consultaResult.data });
 
   } catch (error) {
     registrarErrorPeticion(req, error);
@@ -1005,13 +1070,13 @@ router.get('/evoluciones/:id_evolucion/ordenes-estudios', authenticateToken, asy
   }
 });
 
-router.patch('/evoluciones/:id_orden/ordenes-estudios', authenticateToken,  async (req,res)=> {
-  const {id_orden} = req.params;    
-  const {id_tipo_estudio, descripcion, motivo, fecha_ejecucion} = req.body;
-    
-  if (!id_orden ) {
+router.patch('/evoluciones/:id_orden/ordenes-estudios', authenticateToken, async (req, res) => {
+  const { id_orden } = req.params;
+  const { id_tipo_estudio, descripcion, motivo, fecha_ejecucion } = req.body;
+
+  if (!id_orden) {
     registrarErrorPeticion(req, "Intento de actualizacion sin  ident");
-    return res.status(400).json({ error: 'Campos requeridos' });    
+    return res.status(400).json({ error: 'Campos requeridos' });
   }
 
   if (fecha_ejecucion) {
@@ -1020,146 +1085,146 @@ router.patch('/evoluciones/:id_orden/ordenes-estudios', authenticateToken,  asyn
       return res.status(400).json({ error: 'La fecha de ejecucion no es válida.' });
     }
   }
- 
+
   if (id_tipo_estudio && isNaN(parseInt(id_tipo_estudio))) {
     return res.status(400).json({ error: 'El ID de tipo de estudio no es válido.' });
   }
 
 
-  const allowed =  [
+  const allowed = [
     'id_tipo_estudio', 'descripcion', 'motivo', 'fecha_ejecucion'
   ];
 
-   let whereConditions = {
-      id_orden : parseInt(id_orden, 10),    
-      firmada: false 
-    };
+  let whereConditions = {
+    id_orden: parseInt(id_orden, 10),
+    firmada: false
+  };
 
-  let tabla='ordenes_estudios';  
+  let tabla = 'ordenes_estudios';
 
   const update = buildUpdateQuery(tabla, allowed, req.body, whereConditions);
   if (!update) {
     registrarErrorPeticion(req, "No hay campos para actualizar");
-      return res.json({
-          success:false,
-          datos:"No hay campos para actualizar"
-        }); 
-      }
-  
-  try {    
+    return res.json({
+      success: false,
+      datos: "No hay campos para actualizar"
+    });
+  }
+
+  try {
     const result = await retornarQuery(update.query, update.values);
     return res.json({
       success: true,
       datos: result
     });
-    } catch (error) { 
-      registrarErrorPeticion(req, error);
-      return res.json({
-          success:false,
-          datos:error
-        }); 
-      }
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
 })
 
-router.patch('/evoluciones/:id_orden/tratamientos', authenticateToken,  async (req,res)=> {
-  const {id_orden} = req.params;    
-  const {tipo_tratamiento, descripcion} = req.body;
-    
-  if (!id_orden ) {
+router.patch('/evoluciones/:id_orden/tratamientos', authenticateToken, async (req, res) => {
+  const { id_orden } = req.params;
+  const { tipo_tratamiento, descripcion } = req.body;
+
+  if (!id_orden) {
     registrarErrorPeticion(req, "Intento de actualizacion sin  ident");
-    return res.status(400).json({ error: 'Campos requeridos' });    
+    return res.status(400).json({ error: 'Campos requeridos' });
   }
 
-  const allowed =  [
+  const allowed = [
     'tipo_tratamiento', 'descripcion'
   ];
 
-   let whereConditions = {
-      id_tratamiento: parseInt(id_orden, 10),    
-      firmada: false 
-    };
+  let whereConditions = {
+    id_tratamiento: parseInt(id_orden, 10),
+    firmada: false
+  };
 
-  let tabla='tratamientos';  
+  let tabla = 'tratamientos';
 
   const update = buildUpdateQuery(tabla, allowed, req.body, whereConditions);
   if (!update) {
     registrarErrorPeticion(req, "No hay campos para actualizar");
-      return res.json({
-          success:false,
-          datos:"No hay campos para actualizar"
-        }); 
-      }
-  
-  try {    
+    return res.json({
+      success: false,
+      datos: "No hay campos para actualizar"
+    });
+  }
+
+  try {
     const result = await retornarQuery(update.query, update.values);
     return res.json({
       success: true,
       datos: result
     });
-    } catch (error) { 
-      registrarErrorPeticion(req, error);
-      return res.json({
-          success:false,
-          datos:error
-        }); 
-      }
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
 })
 
-router.patch('/evoluciones/:id_orden/recetas', authenticateToken,  async (req,res)=> {
-  const {id_orden} = req.params;    
-  const {nombre_medicamento, dosis, via_administracion, frecuencia, duracion, indicaciones} = req.body;
-    
-  if (!id_orden ) {
+router.patch('/evoluciones/:id_orden/recetas', authenticateToken, async (req, res) => {
+  const { id_orden } = req.params;
+  const { nombre_medicamento, dosis, via_administracion, frecuencia, duracion, indicaciones } = req.body;
+
+  if (!id_orden) {
     registrarErrorPeticion(req, "Intento de actualizacion sin  ident");
-    return res.status(400).json({ error: 'Campos requeridos' });    
+    return res.status(400).json({ error: 'Campos requeridos' });
   }
 
-  const allowed =  [
+  const allowed = [
     'nombre_medicamento', 'dosis', 'via_administracion', 'frecuencia', 'duracion', 'indicaciones'
   ];
 
-   let whereConditions = {
-      id_receta: parseInt(id_orden, 10),    
-      firmada: false 
-    };
+  let whereConditions = {
+    id_receta: parseInt(id_orden, 10),
+    firmada: false
+  };
 
-  let tabla='recetas';  
+  let tabla = 'recetas';
 
   const update = buildUpdateQuery(tabla, allowed, req.body, whereConditions);
   if (!update) {
     registrarErrorPeticion(req, "No hay campos para actualizar");
-      return res.json({
-          success:false,
-          datos:"No hay campos para actualizar"
-        }); 
-      }
-  
-  try {    
+    return res.json({
+      success: false,
+      datos: "No hay campos para actualizar"
+    });
+  }
+
+  try {
     const result = await retornarQuery(update.query, update.values);
     return res.json({
       success: true,
       datos: result
     });
-    } catch (error) { 
-      registrarErrorPeticion(req, error);
-      return res.json({
-          success:false,
-          datos:error
-        }); 
-      }
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({
+      success: false,
+      datos: error
+    });
+  }
 })
 
-router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken,  async (req,res)=> {
-  const {id_orden, tipo} = req.params;    
-      
-  if (!id_orden ) {
+router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken, async (req, res) => {
+  const { id_orden, tipo } = req.params;
+
+  if (!id_orden) {
     registrarErrorPeticion(req, "Intento de actualizacion sin ident");
-    return res.status(400).json({ error: 'Campos requeridos' });    
+    return res.status(400).json({ error: 'Campos requeridos' });
   }
-  if(tipo!="recetas" || tipo!="tratamientos" || tipo!="ordenes_estudios"){
-    return res.status(400).json({ error: 'Tipo de documento invalido' });    
+  if (tipo != "recetas" || tipo != "tratamientos" || tipo != "ordenes_estudios") {
+    return res.status(400).json({ error: 'Tipo de documento invalido' });
   }
-  let id_usuario_firma = req.logData.id_usuario; 
+  let id_usuario_firma = req.logData.id_usuario;
   if (!id_usuario_firma) {
     return res.status(401).json({ success: false, error: 'Usuario no autenticado o sin ID' });
   }
@@ -1171,45 +1236,45 @@ router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken,  async (r
       FROM ${tipo} 
       WHERE id_evolucion = ?
     `;
-    const checkResult = await retornarQuery(checkQuery, [id_evolucion]);
+  const checkResult = await retornarQuery(checkQuery, [id_evolucion]);
 
-    if (checkResult.length === 0) {
-      return res.status(404).json({ success: false, error: 'Documento no encontrado' });
-    }
+  if (checkResult.length === 0) {
+    return res.status(404).json({ success: false, error: 'Documento no encontrado' });
+  }
 
-    const evol = checkResult.data[0];
-    if (evol.firmada) {
-      return res.status(400).json({ success: false, error: 'Documento ya firmado' });
-    }
+  const evol = checkResult.data[0];
+  if (evol.firmada) {
+    return res.status(400).json({ success: false, error: 'Documento ya firmado' });
+  }
 
-    try{
-      let queryUsuario = "SELECT id_especialista FROM perfil_usuario_basico WHERE id_usuario=?"
-      let idMedUsu = await retornarQuery(queryUsuario,[id_usuario_firma])
-      id_usuario_firma=idMedUsu.data[0].id_especialista
-    }catch{
-      return res.status(403).json({ success: false, error: 'Usuario no es especialista' });
-    }
-   
-    if (evol.id_med !== id_usuario_firma) {
-      return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar este documento', firmas:{evol:evol.id_med, id_usuario_firma} });
-    }
-    let identificador =''
-    switch (tipo) {
-      case "recetas":
-        identificador = 'id_receta';
-        break;
-      case "tratamientos":
-        identificador = 'id_tratamiento';
-        break;
-      case "ordenes_estudios":
-        identificador = 'id_orden';
-        break;    
-      default:
-        return res.status(400).json({ error: 'Tipo de documento invalido' });   
-    }
-    
-  let query_firma = 
-  `UPDATE ${tipo} 
+  try {
+    let queryUsuario = "SELECT id_especialista FROM perfil_usuario_basico WHERE id_usuario=?"
+    let idMedUsu = await retornarQuery(queryUsuario, [id_usuario_firma])
+    id_usuario_firma = idMedUsu.data[0].id_especialista
+  } catch {
+    return res.status(403).json({ success: false, error: 'Usuario no es especialista' });
+  }
+
+  if (evol.id_med !== id_usuario_firma) {
+    return res.status(403).json({ success: false, error: 'Solo el médico asignado puede firmar este documento', firmas: { evol: evol.id_med, id_usuario_firma } });
+  }
+  let identificador = ''
+  switch (tipo) {
+    case "recetas":
+      identificador = 'id_receta';
+      break;
+    case "tratamientos":
+      identificador = 'id_tratamiento';
+      break;
+    case "ordenes_estudios":
+      identificador = 'id_orden';
+      break;
+    default:
+      return res.status(400).json({ error: 'Tipo de documento invalido' });
+  }
+
+  let query_firma =
+    `UPDATE ${tipo} 
   SET firmada = TRUE, 
     fecha_firma = NOW(), 
     id_usuario_firma = ? 

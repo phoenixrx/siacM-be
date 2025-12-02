@@ -10,12 +10,12 @@ router.get('/consulta/:id_admidet', async (req, res) => {
         return res.json({ error: "Falta identificador" });
     }
 
-     const checkQuery = `SELECT id_consulta FROM consultas WHERE id_admidet = ? limit 1`;
-    
+    const checkQuery = `SELECT id_consulta FROM consultas WHERE id_admidet = ? limit 1`;
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_admidet]);
 
-        let query=`
+        let query = `
         SELECT a.id_admision,
             a.id_paciente,
             p.nombres,
@@ -35,38 +35,38 @@ router.get('/consulta/:id_admidet', async (req, res) => {
         LEFT JOIN datos_enfermeria de ON a.id_admision = de.id_admision
         WHERE ad.id_admidet = ?`;
         let params;
-        
+
         let datosIdentificacion = await retornarQuery(query, [id_admidet])
 
         if (existingRecord.data.length > 0) {
-            let queryContador= `SELECT c.id_admidet as id_consulta, a.id_cli 
+            let queryContador = `SELECT c.id_admidet as id_consulta, a.id_cli 
             FROM consultas c 
             INNER JOIN admisiones_det ad ON c.id_admidet = ad.id_admidet  
             INNER JOIN admisiones a ON ad.id_admision = a.id_admision              
             WHERE a.id_paciente=?`
-            let datosContador = await retornarQuery(queryContador, [ datosIdentificacion.data[0].id_paciente])
+            let datosContador = await retornarQuery(queryContador, [datosIdentificacion.data[0].id_paciente])
             return res.json({
                 success: true,
                 idConsulta: existingRecord.data[0].id_consulta,
                 datosIdentificacion,
-                datosContador            
+                datosContador
             });
         } else {
             const insertingRecord = await retornarQuery(`INSERT INTO consultas (id_admidet) VALUES (?)`, [id_admidet]);
-            let queryContador= `SELECT c.id_admidetas id_consulta, a.id_cli 
+            let queryContador = `SELECT c.id_admidetas id_consulta, a.id_cli 
             FROM consultas c 
             INNER JOIN admisiones_det ad ON c.id_admidet = ad.id_admidet  
             INNER JOIN admisiones a ON ad.id_admision = a.id_admision              
             WHERE a.id_paciente=?`
-            let datosContador = await retornarQuery(queryContador, [ datosIdentificacion.data[0].id_paciente])
+            let datosContador = await retornarQuery(queryContador, [datosIdentificacion.data[0].id_paciente])
             return res.json({
                 success: true,
-                idConsulta: insertingRecord.data.insertId ,
+                idConsulta: insertingRecord.data.insertId,
                 datosIdentificacion,
-                datosContador          
+                datosContador
             });
         }
-    }catch(error) {
+    } catch (error) {
         return res.json({
             success: false,
             error: error.message
@@ -88,7 +88,7 @@ router.patch('/paciente/:id_paciente', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_paciente];
 
     const query = `
@@ -113,7 +113,8 @@ router.patch('/paciente/:id_paciente', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -125,47 +126,47 @@ router.post('/datos_enfermeria/:id_admision', async (req, res) => {
     const { id_admision } = req.params;
     const updateFields = req.body;
 
-    if (!id_admision ) {
+    if (!id_admision) {
         return res.json({ error: "Faltan datos obligatorios" });
     }
 
     const checkQuery = `SELECT id_datos_enfermeria FROM datos_enfermeria WHERE id_admision = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_admision]);
 
         let query;
         let params;
-        
+
         if (existingRecord.data.length > 0) {
-           
+
             const setClause = Object.keys(updateFields)
-            .map(key => `${key} = ?`)
-            .join(', ');
-        
+                .map(key => `${key} = ?`)
+                .join(', ');
+
             const values = Object.values(updateFields)
-            .join(', ');
-        
-        
+                .join(', ');
+
+
             query = `
                 UPDATE datos_enfermeria 
                 SET ${setClause}
                 WHERE id_admision = ?
             `;
             params = [
-                    values,
-                    id_admision
-                    ];
-                    
+                values,
+                id_admision
+            ];
+
         } else {
             // INSERT
             const setClause = Object.keys(updateFields)
-            .map(key => `${key}`)
-            .join(', ');
-        
+                .map(key => `${key}`)
+                .join(', ');
+
             const values = Object.values(updateFields)
-            .join(', ');
-        
+                .join(', ');
+
 
 
             query = `
@@ -177,9 +178,9 @@ router.post('/datos_enfermeria/:id_admision', async (req, res) => {
                 id_admision, values
             ];
         }
-             
+
         const result = await retornarQuery(query, params);
-        
+
         if (result.error) {
             return res.json({
                 success: false,
@@ -193,7 +194,8 @@ router.post('/datos_enfermeria/:id_admision', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -204,7 +206,7 @@ router.post('/datos_enfermeria/:id_admision', async (req, res) => {
 // GET Antecedentes Personales Patológicos por id_consulta
 router.get('/personales-patologicos/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -231,7 +233,8 @@ router.get('/personales-patologicos/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -242,7 +245,7 @@ router.get('/personales-patologicos/:id_consulta', async (req, res) => {
 // GET Antecedentes Ginecológicos por id_consulta
 router.get('/ginecologicos/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -269,7 +272,8 @@ router.get('/ginecologicos/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -280,7 +284,7 @@ router.get('/ginecologicos/:id_consulta', async (req, res) => {
 // GET Hábitos y Estilo de Vida por id_consulta
 router.get('/habitos-estilo-vida/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -307,7 +311,8 @@ router.get('/habitos-estilo-vida/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -318,7 +323,7 @@ router.get('/habitos-estilo-vida/:id_consulta', async (req, res) => {
 // GET Antecedentes Familiares por id_consulta
 router.get('/familiares/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -345,7 +350,8 @@ router.get('/familiares/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -356,7 +362,7 @@ router.get('/familiares/:id_consulta', async (req, res) => {
 // GET Historia Enfermedad Actual por id_consulta
 router.get('/enfermedad-actual/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -383,7 +389,8 @@ router.get('/enfermedad-actual/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -394,7 +401,7 @@ router.get('/enfermedad-actual/:id_consulta', async (req, res) => {
 // GET Farmacológico Actual por id_consulta
 router.get('/farmacologico-actual/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -421,18 +428,19 @@ router.get('/farmacologico-actual/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
         });
     }
-}); 
+});
 
 // GET Aspectos Psicosociales por id_consulta
 router.get('/psicosociales/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -459,7 +467,8 @@ router.get('/psicosociales/:id_consulta', async (req, res) => {
             result: result.data.length > 0 ? result.data[0] : null
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -470,7 +479,7 @@ router.get('/psicosociales/:id_consulta', async (req, res) => {
 // GET Todos los antecedentes por id_consulta (endpoint consolidado)
 router.get('/todos/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -498,7 +507,7 @@ router.get('/todos/:id_consulta', async (req, res) => {
         // Verificar si hay errores en alguna consulta
         const queries = [personalesPatologicos, ginecologicos, habitosEstiloVida, familiares, enfermedadActual, farmacologicoActual, psicosociales];
         const hasError = queries.some(query => query.error);
-        
+
         if (hasError) {
             return res.json({
                 success: false,
@@ -519,7 +528,8 @@ router.get('/todos/:id_consulta', async (req, res) => {
             }
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -540,7 +550,7 @@ router.post('/personales-patologicos', async (req, res) => {
         alergias_otras,
         traumatismos_accidentes,
         problemas_anestesia,
-        observaciones, 
+        observaciones,
         otras_enfermedades
     } = req.body;
 
@@ -549,7 +559,7 @@ router.post('/personales-patologicos', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM antecedentes_personales_patologicos WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -584,7 +594,7 @@ router.post('/personales-patologicos', async (req, res) => {
             params = [
                 id_consulta, id_paciente, enfermedades_cronicas, antecedentes_quirurgicos,
                 antecedentes_hospitalizaciones, alergias_medicamentos, alergias_alimentos,
-                alergias_otras, traumatismos_accidentes, problemas_anestesia, observaciones,otras_enfermedades
+                alergias_otras, traumatismos_accidentes, problemas_anestesia, observaciones, otras_enfermedades
             ];
         }
 
@@ -603,7 +613,8 @@ router.post('/personales-patologicos', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -644,7 +655,7 @@ router.post('/ginecologicos', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM antecedentes_ginecologicos WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -708,7 +719,8 @@ router.post('/ginecologicos', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -751,7 +763,7 @@ router.post('/habitos-estilo-vida', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM habitos_estilo_vida WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -819,7 +831,8 @@ router.post('/habitos-estilo-vida', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -849,7 +862,7 @@ router.post('/familiares', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM antecedentes_familiares WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -903,7 +916,8 @@ router.post('/familiares', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -935,7 +949,7 @@ router.post('/enfermedad-actual', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM historia_enfermedad_actual WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -986,15 +1000,16 @@ router.post('/enfermedad-actual', async (req, res) => {
                 error: result.error
             });
         }
-        
-        await retornarQuery("UPDATE consultas SET motivo=? WHERE id_consulta = ?", [motivo_consulta,id_consulta]);
+
+        await retornarQuery("UPDATE consultas SET motivo=? WHERE id_consulta = ?", [motivo_consulta, id_consulta]);
         return res.json({
             success: true,
             message: existingRecord.data.length > 0 ? "Registro actualizado correctamente" : "Registro creado correctamente",
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1019,7 +1034,7 @@ router.post('/farmacologico-actual', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM farmacologico_actual WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -1067,7 +1082,8 @@ router.post('/farmacologico-actual', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1095,7 +1111,7 @@ router.post('/psicosociales', async (req, res) => {
     }
 
     const checkQuery = `SELECT id FROM aspectos_psicosociales WHERE id_consulta = ?`;
-    
+
     try {
         const existingRecord = await retornarQuery(checkQuery, [id_consulta]);
 
@@ -1145,7 +1161,8 @@ router.post('/psicosociales', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1182,7 +1199,7 @@ router.patch('/personales-patologicos/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1207,14 +1224,15 @@ router.patch('/personales-patologicos/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
         });
     }
 });
- 
+
 
 // PATCH para actualización parcial de Antecedentes Ginecológicos
 router.patch('/ginecologicos/:id_consulta', async (req, res) => {
@@ -1244,7 +1262,7 @@ router.patch('/ginecologicos/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1269,7 +1287,8 @@ router.patch('/ginecologicos/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1305,7 +1324,7 @@ router.patch('/habitos-estilo-vida/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1330,7 +1349,8 @@ router.patch('/habitos-estilo-vida/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1366,7 +1386,7 @@ router.patch('/familiares/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1391,7 +1411,8 @@ router.patch('/familiares/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1427,7 +1448,7 @@ router.patch('/enfermedad-actual/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1435,7 +1456,7 @@ router.patch('/enfermedad-actual/:id_consulta', async (req, res) => {
         SET ${setClause}, fecha_modificacion = CURRENT_TIMESTAMP
         WHERE id_consulta = ?
     `;
-    if(setClause=="motivo_consulta = ?"){
+    if (setClause == "motivo_consulta = ?") {
         await retornarQuery("UPDATE consultas SET motivo=? WHERE id_consulta = ?", [...Object.values(updateFields), id_consulta]);
     }
     try {
@@ -1454,7 +1475,8 @@ router.patch('/enfermedad-actual/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1490,7 +1512,7 @@ router.patch('/farmacologico-actual/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1515,7 +1537,8 @@ router.patch('/farmacologico-actual/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1551,7 +1574,7 @@ router.patch('/psicosociales/:id_consulta', async (req, res) => {
     const setClause = Object.keys(updateFields)
         .map(key => `${key} = ?`)
         .join(', ');
-    
+
     const values = [...Object.values(updateFields), id_consulta];
 
     const query = `
@@ -1576,7 +1599,8 @@ router.patch('/psicosociales/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1596,7 +1620,7 @@ router.patch('/todos/:id_consulta', async (req, res) => {
     try {
         const results = {};
         const errors = [];
-        
+
         // Mapeo de secciones a tablas
         const tableMap = {
             'personalesPatologicos': 'antecedentes_personales_patologicos',
@@ -1612,7 +1636,7 @@ router.patch('/todos/:id_consulta', async (req, res) => {
         for (const [section, data] of Object.entries(updates)) {
             if (Object.keys(data).length > 0) {
                 const tableName = tableMap[section];
-                
+
                 if (tableName) {
                     // Verificar si existe el registro
                     const checkQuery = `SELECT id FROM ${tableName} WHERE id_consulta = ?`;
@@ -1640,7 +1664,7 @@ router.patch('/todos/:id_consulta', async (req, res) => {
                     const setClause = Object.keys(cleanData)
                         .map(key => `${key} = ?`)
                         .join(', ');
-                    
+
                     const values = [...Object.values(cleanData), id_consulta];
 
                     const query = `
@@ -1650,13 +1674,13 @@ router.patch('/todos/:id_consulta', async (req, res) => {
                     `;
 
                     const result = await retornarQuery(query, values);
-                    
+
                     if (result.error) {
                         errors.push(`Error en ${section}: ${result.error}`);
                         results[section] = { success: false, error: result.error };
                     } else {
-                        results[section] = { 
-                            success: true, 
+                        results[section] = {
+                            success: true,
                             affectedRows: result.affectedRows,
                             message: "Actualizado correctamente"
                         };
@@ -1677,7 +1701,8 @@ router.patch('/todos/:id_consulta', async (req, res) => {
             errors: errors.length > 0 ? errors : undefined
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1741,7 +1766,7 @@ router.patch('/campo-especifico/:id_consulta', async (req, res) => {
         const setClause = Object.keys(cleanCampos)
             .map(key => `${key} = ?`)
             .join(', ');
-        
+
         const values = [...Object.values(cleanCampos), id_consulta];
 
         const query = `
@@ -1766,7 +1791,8 @@ router.patch('/campo-especifico/:id_consulta', async (req, res) => {
             camposActualizados: Object.keys(cleanCampos)
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1795,9 +1821,9 @@ router.post('/revision-sistemas', async (req, res) => {
                     VALUES (?, ?, ?, ?)
                 `;
                 return retornarQuery(query, [
-                    id_consulta, 
-                    sistema.tipo_examen, 
-                    sistema.sistema_examen, 
+                    id_consulta,
+                    sistema.tipo_examen,
+                    sistema.sistema_examen,
                     sistema.detalle_examen || null
                 ]);
             }
@@ -1808,7 +1834,7 @@ router.post('/revision-sistemas', async (req, res) => {
 
         // Verificar si hay errores
         const hasError = results.some(result => result.error);
-        
+
         if (hasError) {
             return res.json({
                 success: false,
@@ -1822,7 +1848,8 @@ router.post('/revision-sistemas', async (req, res) => {
             sistemasGuardados: sistemas.length
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1860,7 +1887,8 @@ router.patch('/revision-sistemas/:id_consulta_exam', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1870,7 +1898,7 @@ router.patch('/revision-sistemas/:id_consulta_exam', async (req, res) => {
 
 router.get('/revision-sistemas/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -1896,7 +1924,8 @@ router.get('/revision-sistemas/:id_consulta', async (req, res) => {
             result: result
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1913,7 +1942,7 @@ router.post('/revision-sistemas-item/:id_consulta', async (req, res) => {
         return res.json({ error: "Faltan datos obligatorios" });
     }
 
-    try {        
+    try {
         const query = `
             INSERT INTO consulta_exam_sistema 
             (id_consulta, sistema_examen, tipo_examen, detalle_examen)
@@ -1921,7 +1950,7 @@ router.post('/revision-sistemas-item/:id_consulta', async (req, res) => {
             ON DUPLICATE KEY UPDATE 
             detalle_examen = VALUES(detalle_examen)
         `;
-        
+
         const params = [id_consulta, sistema_examen, tipo_examen, detalle_examen || ''];
 
         const result = await retornarQuery(query, params);
@@ -1939,8 +1968,9 @@ router.post('/revision-sistemas-item/:id_consulta', async (req, res) => {
             affectedRows: result.affectedRows
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
-        
+    } catch (error) {
+        registrarErrorPeticion(req, error);
+
         return res.json({
             success: false,
             error: error.message
@@ -1962,7 +1992,7 @@ router.delete('/revision-sistemas-item/:id_consulta', async (req, res) => {
             DELETE FROM consulta_exam_sistema 
             WHERE id_consulta = ? AND sistema_examen = ? AND tipo_examen = ?
         `;
-        
+
         const result = await retornarQuery(query, [id_consulta, sistema_examen, tipo_examen]);
 
         if (result.error) {
@@ -1977,7 +2007,8 @@ router.delete('/revision-sistemas-item/:id_consulta', async (req, res) => {
             message: "Item eliminado correctamente"
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
@@ -1988,7 +2019,7 @@ router.delete('/revision-sistemas-item/:id_consulta', async (req, res) => {
 // routes/antecedentes.js - Agregar esta ruta
 router.get('/imprimir/:id_consulta', async (req, res) => {
     const { id_consulta } = req.params;
-    
+
     if (!id_consulta) {
         return res.json({ error: "Falta id_consulta" });
     }
@@ -2007,7 +2038,13 @@ router.get('/imprimir/:id_consulta', async (req, res) => {
             revisionSistemas
         ] = await Promise.all([
             // Datos del paciente (asumiendo que tienes esta tabla)
-            retornarQuery('SELECT * FROM pacientes WHERE id_paciente IN (SELECT id_paciente FROM antecedentes_familiares WHERE id_consulta = ?)', [id_consulta]),
+            retornarQuery(`SELECT * FROM pacientes WHERE id_paciente IN (
+                SELECT p.id_paciente 
+                    from pacientes p 
+                    inner join admisiones a on a.id_paciente=p.id_paciente 
+                    inner join admisiones_det ad on ad.id_admision=a.id_admision 
+                    inner join consultas c on c.id_admidet=ad.id_admidet 
+                    where c.id_consulta =?)`, [id_consulta]),
             retornarQuery('SELECT * FROM antecedentes_personales_patologicos WHERE id_consulta = ? ORDER BY fecha_creacion DESC LIMIT 1', [id_consulta]),
             retornarQuery('SELECT * FROM antecedentes_ginecologicos WHERE id_consulta = ? ORDER BY fecha_creacion DESC LIMIT 1', [id_consulta]),
             retornarQuery('SELECT * FROM habitos_estilo_vida WHERE id_consulta = ? ORDER BY fecha_creacion DESC LIMIT 1', [id_consulta]),
@@ -2021,7 +2058,7 @@ router.get('/imprimir/:id_consulta', async (req, res) => {
         // Verificar si hay errores
         const queries = [datosPaciente, personalesPatologicos, ginecologicos, habitosEstiloVida, familiares, enfermedadActual, farmacologicoActual, psicosociales, revisionSistemas];
         const hasError = queries.some(query => query && query.error);
-        
+
         if (hasError) {
             return res.json({
                 success: false,
@@ -2043,7 +2080,8 @@ router.get('/imprimir/:id_consulta', async (req, res) => {
             }
         });
 
-    } catch (error) { registrarErrorPeticion(req, error);
+    } catch (error) {
+        registrarErrorPeticion(req, error);
         return res.json({
             success: false,
             error: error.message
