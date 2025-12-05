@@ -551,18 +551,21 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         c.id_consulta AS id_registro, 
         NULL AS id_evolucion, 
         c.id_consulta, 
-        NULL AS id_med_evolution, 
         c.fecha_creacion as fecha_hora, 
         c.motivo AS titulo, 
         null as motivo,
         NULL AS estado_paciente, 
-        NULL AS firmada ,
+        c.firmada AS firmada ,
         c.id_admidet,
+        ad.id_medico as id_med_evolution,
         a.id_admision,
-        a.id_cli
+        a.id_cli,
+        concat(m.nombre, ' ', m.apellido) as especialista,
+        m.titulo as titulo_medico
     FROM consultas c 
     INNER JOIN admisiones_det ad on ad.id_admidet = c.id_admidet 
     INNER join admisiones a on a.id_admision = ad.id_admision 
+    INNER join medicos m on m.id_medico = ad.id_medico
     WHERE a.id_paciente = ? AND a.id_cli =?
     )
     UNION ALL
@@ -572,17 +575,20 @@ router.get('/dashboard/paciente/:id_paciente/timeline', authenticateToken, async
         id_evolucion AS id_registro,
         id_evolucion,
         id_consulta,
-        id_med AS id_med_evolution,
         fecha_hora,
-        te.nombre AS titulo,
+        te.nombre AS titulo,        
         e.motivo,
-        estado_paciente,
-        firmada,
+        e.estado_paciente,
+        e.firmada,
         NULL as id_admidet,
+        id_med AS id_med_evolution,        
         NULL as id_admision,
-        id_cli
+        e.id_cli,
+        concat(m.nombre, ' ', m.apellido) as especialista,
+        m.titulo as titulo_medico
       FROM evoluciones e
       LEFT JOIN tipos_evolucion te ON e.tipo_evolucion = te.id_tipo
+      inner join medicos m on m.id_medico = e.id_med 
       WHERE e.id_paciente = ? AND e.id_cli =?
     )
     ORDER BY fecha_hora DESC
@@ -1221,8 +1227,8 @@ router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken, async (re
     registrarErrorPeticion(req, "Intento de actualizacion sin ident");
     return res.status(400).json({ error: 'Campos requeridos' });
   }
-  if (tipo != "recetas" || tipo != "tratamientos" || tipo != "ordenes_estudios") {
-    return res.status(400).json({ error: 'Tipo de documento invalido' });
+  if (tipo != "recetas" && tipo != "tratamientos" && tipo != "ordenes_estudios") {
+    return res.status(400).json({ error: 'Tipo de documento invalido', tipo });
   }
   let id_usuario_firma = req.logData.id_usuario;
   if (!id_usuario_firma) {
@@ -1236,9 +1242,11 @@ router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken, async (re
       FROM ${tipo} 
       WHERE id_evolucion = ?
     `;
-  const checkResult = await retornarQuery(checkQuery, [id_evolucion]);
+  const checkResult = await retornarQuery(checkQuery, [id_orden]);
 
-  if (checkResult.length === 0) {
+
+
+  if (checkResult.data.length === 0) {
     return res.status(404).json({ success: false, error: 'Documento no encontrado' });
   }
 
@@ -1275,14 +1283,23 @@ router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken, async (re
 
   let query_firma =
     `UPDATE ${tipo} 
-  SET firmada = TRUE, 
-    fecha_firma = NOW(), 
-    id_usuario_firma = ? 
-  WHERE ${identificador} = ?`;
-  const params = [id_usuario_firma, id_orden];
+  SET firmada = TRUE
+  WHERE id_evolucion = ?`;
+  const params = [id_orden];
+  const updateQuery = `
+      UPDATE evoluciones 
+      SET 
+        firmada = TRUE,
+        fecha_firma = NOW(),
+        id_usuario_firma = ?
+      WHERE id_evolucion = ?
+    `;
+
+
 
   try {
     const result = await retornarQuery(query_firma, params);
+    const result2 = await retornarQuery(updateQuery, [id_usuario_firma, id_orden]);
     return res.json({
       success: true,
       datos: result
@@ -1293,6 +1310,79 @@ router.patch('/evoluciones/:id_orden/firmar/:tipo', authenticateToken, async (re
       success: false,
       datos: error
     });
+  }
+})
+
+router.get('/prescripciones/:id_consulta/:tipo/:id_especialista', async (req, res) => {
+  const { id_consulta, tipo, id_especialista } = req.params;
+
+  if (!id_consulta || !tipo || !id_especialista) {
+    return res.status(400).json({ error: 'Campos requeridos' });
+  }
+
+
+  let queryTipo = '';
+  switch (tipo) {
+    case "recetas":
+      queryTipo = `SELECT r.* , 
+                      concat(p.nombres,' ',p.apellidos) as paciente, 
+                      concat(p.tipo_cedula,p.cedula) as cedula_paciente, 
+                      p.fecha_nacimiento, 
+                      concat(m.nombre,' ',m.apellido) as especialista, 
+                      m.cedula_p, 
+                      m.cedula,
+                      m.titulo 
+                    FROM recetas r 
+                      inner join evoluciones e on e.id_evolucion=r.id_evolucion 
+                      INNER join consultas c on c.id_consulta=e.id_consulta 
+                      inner join pacientes p on p.id_paciente=e.id_paciente 
+                      INNER JOIN medicos m on m.id_medico=e.id_med 
+                    where c.id_consulta= ? and e.id_med = ?`;
+      break;
+    case "tratamientos":
+      queryTipo = `SELECT t.*,
+                      concat(p.nombres,' ',p.apellidos) as paciente, 
+                      concat(p.tipo_cedula,p.cedula) as cedula_paciente, 
+                      p.fecha_nacimiento, 
+                      concat(m.nombre,' ',m.apellido) as especialista, 
+                      m.cedula_p, 
+                      m.cedula,
+                      m.titulo 
+                   FROM tratamientos t 
+                   inner join evoluciones e on e.id_evolucion=t.id_evolucion 
+                   INNER join consultas c on c.id_consulta=e.id_consulta 
+                   inner join pacientes p on p.id_paciente=e.id_paciente 
+                   INNER JOIN medicos m on m.id_medico=e.id_med 
+                   where c.id_consulta= ? and e.id_med = ?`;
+      break;
+    case "ordenes_estudios":
+      queryTipo = `SELECT o.*,
+                      concat(p.nombres,' ',p.apellidos) as paciente, 
+                      concat(p.tipo_cedula,p.cedula) as cedula_paciente, 
+                      p.fecha_nacimiento, 
+                      concat(m.nombre,' ',m.apellido) as especialista, 
+                      m.cedula_p, 
+                      m.cedula,
+                      te.descripcion as tipo,
+                      m.titulo 
+                   FROM ordenes_estudios o 
+                   inner join evoluciones e on e.id_evolucion=o.id_evolucion 
+                   INNER join consultas c on c.id_consulta=e.id_consulta 
+                   inner join pacientes p on p.id_paciente=e.id_paciente 
+                   INNER JOIN medicos m on m.id_medico=e.id_med 
+                   INNER JOIN tipo_estudio te on te.id_tipo_estudio=o.id_tipo_estudio
+                   where c.id_consulta= ? and e.id_med = ?`;
+      break;
+    default:
+      return res.status(400).json({ success: false, error: 'Tipo de documento invalido' });
+  }
+
+  try {
+    const result = await retornarQuery(queryTipo, [id_consulta, id_especialista]);
+    return res.json({ success: true, datos: result });
+  } catch (error) {
+    registrarErrorPeticion(req, error);
+    return res.json({ success: false, datos: error });
   }
 })
 

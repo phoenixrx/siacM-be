@@ -46,10 +46,45 @@ const admisionesRoutes = require('./routes/admisiones');
 const configuracionesRoutes = require('./routes/configuraciones');
 const pacientesRoutes = require('./routes/pacientes');
 const pagosRoutes = require('./routes/pagos');
+const firmasRoutes = require('./routes/firmas');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
+//app.set('trust proxy', true);
+app.use(cors({
+  origin: ['https://siac.empresas.historiaclinica.org',
+    'https://siacmedica.com/',
+    'https://facturacion.siac.historiaclinica.org/',
+    'https://facturacion.siac.historiaclinica.org',
+    'http://server:8080',
+    'http://192.168.100.201:5501',
+    'http://127.0.0.1:5501',
+  ],
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+
+
+app.use('/api/control_gastos', presupuestosRoutes);
+app.use('/api/reportes', reportesRoutes);
+app.use('/api/honorarios', honorariosRoutes);
+app.use('/api/portal_medico', portalMedicoRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/recibos', recibosRoutes);
+app.use('/api/caja', cajasRoutes);
+app.use('/api', headerRoutes);
+app.use('/api/control_gastos', controlGastosRoutes);
+app.use('/api/inventarios', inventariosRoutes);
+app.use('/api/antecedentes', antecedentesRoutes);
+app.use('/api/admisiones', admisionesRoutes);
+app.use('/api/configuraciones', configuracionesRoutes);
+app.use('/api/pacientes', pacientesRoutes);
+app.use('/api/pagos', pagosRoutes);
+app.use('/api/firmas', firmasRoutes);
 
 
 async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, data = { tipo: "nueva_cita" }, large_icon = "https://siac.empresas.historiaclinica.org/images/splash-icon.png") {
@@ -100,39 +135,6 @@ async function enviarNotificacionOneSignal(oneSignalUserId, titulo, mensaje, dat
     return { success: false, error: error.message };
   }
 }
-
-//app.set('trust proxy', true);
-app.use(cors({
-  origin: ['https://siac.empresas.historiaclinica.org',
-    'https://siacmedica.com/',
-    'https://facturacion.siac.historiaclinica.org/',
-    'https://facturacion.siac.historiaclinica.org',
-    'http://server:8080',
-    'http://192.168.100.201:5501',
-    'http://127.0.0.1:5501',
-  ],
-}));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-
-
-app.use('/api/control_gastos', presupuestosRoutes);
-app.use('/api/reportes', reportesRoutes);
-app.use('/api/honorarios', honorariosRoutes);
-app.use('/api/portal_medico', portalMedicoRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/recibos', recibosRoutes);
-app.use('/api/caja', cajasRoutes);
-app.use('/api', headerRoutes);
-app.use('/api/control_gastos', controlGastosRoutes);
-app.use('/api/inventarios', inventariosRoutes);
-app.use('/api/antecedentes', antecedentesRoutes);
-app.use('/api/admisiones', admisionesRoutes);
-app.use('/api/configuraciones', configuracionesRoutes);
-app.use('/api/pacientes', pacientesRoutes);
-app.use('/api/pagos', pagosRoutes);
 
 const crearCitaLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // Ventana de tiempo: 10 minutos
